@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Search</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #e2e8f0, #cbd5e1);
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+    header {
+      background-color: #1e293b;
+      color: white;
+      width: 100%;
+      padding: 1rem;
+      text-align: center;
+      font-size: 1.5rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    .search-box {
+      margin-top: 1rem;
+      background: white;
+      padding: 1rem;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      width: 90%;
+      max-width: 600px;
+    }
+    .search-box input[type="search"] {
+      padding: 0.5rem;
+      font-size: 1rem;
+      border: 1px solid #cbd5e1;
+      border-radius: 5px;
+      width: 100%;
+    }
+    .search-box input[type="submit"] {
+      padding: 0.5rem;
+      background-color: #3b82f6;
+      color: white;
+      border: none;
+      font-size: 1rem;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .search-box input[type="submit"]:hover {
+      background-color: #2563eb;
+    }
+    .toggle-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+    .toggle-btn {
+      padding: 0.5rem 1rem;
+      border-radius: 5px;
+      border: none;
+      font-size: 1rem;
+      cursor: pointer;
+      background-color: #475569;
+      color: white;
+      transition: background 0.2s;
+    }
+    .toggle-btn.active {
+      background-color: #3b82f6;
+    }
+    .toggle-btn:hover {
+      background-color: #334155;
+    }
+    #searchResult {
+      margin-top: 1.5rem;
+      width: 100%;
+      max-width: 800px;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      padding: 0 1rem;
+    }
+    .card {
+      background: white;
+      border-radius: 10px;
+      padding: 1rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .card h2 {
+      margin: 0 0 0.5rem;
+    }
+    .join-btn {
+      margin-top: 0.5rem;
+      padding: 0.5rem 1rem;
+      background-color: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .join-btn:hover {
+      background-color: #2563eb;
+    }
+  </style>
+</head>
+<body>
+  <header>Search</header>
+
+  <div class="search-box">
+    <form id="searchForm" style="display: flex;">
+      <input id="search" type="search" placeholder="Type to search..." />
+      <input type="submit" value="Search" />
+    </form>
+    <div class="toggle-buttons">
+      <button id="listOfRooms" class="toggle-btn active">Rooms</button>
+      <button id="listOfUsers" class="toggle-btn">Users</button>
+    </div>
+  </div>
+
+  <div id="searchResult"></div>
+
+  <script>
+    const socket = io();
+    let mode = 0; // 0 - комнаты, 1 - пользователи
+    
+    const roomsBtn = document.getElementById("listOfRooms");
+    const usersBtn = document.getElementById("listOfUsers");
+
+    function updateActiveButton() {
+      roomsBtn.classList.toggle("active", mode === 0);
+      usersBtn.classList.toggle("active", mode === 1);
+    }
+
+    roomsBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      mode = 0;
+      updateActiveButton();
+      socket.emit("set zero");
+    });
+
+    usersBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      mode = 1;
+      updateActiveButton();
+      socket.emit("set one");
+    });
+
+    document.getElementById("searchForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const searchInput = document.getElementById("search").value.trim();
+      socket.emit("go search", { search: searchInput });
+    });
+
+    socket.on("search result", (results, list) => {
+      const container = document.getElementById("searchResult");
+      container.innerHTML = "";
+
+      if (!results.length) {
+        container.innerHTML = "<p>No results found</p>";
+        return;
+      }
+
+      if (list === 0) {
+        results.forEach(room => {
+          const div = document.createElement("div");
+          div.className = "card";
+          div.innerHTML = `
+            <h2>${room.room_name}</h2>
+            <p>${room.description || ""}</p>
+            <button class="join-btn" onclick="window.location.href='/main?room=${encodeURIComponent(room.room_name)}'">Join Room</button>
+          `;
+          container.appendChild(div);
+        });
+      } else {
+        results.forEach(user => {
+        const div = document.createElement("div");
+        div.className = "card";
+        div.innerHTML = `
+          <h2>${user.name}</h2>
+          <button class="add-friend-btn">Add Friend</button>
+        `;
+        const btn = div.querySelector(".add-friend-btn");
+        btn.addEventListener("click", () => {
+          socket.emit("add friend", { name: user.name });
+        });
+        container.appendChild(div);
+      });
+
+      }
+    });
+    socket.on("friend added", (name) => {
+      alert(`✅ ${name} добавлен в друзья`);
+    });
+
+    socket.on("friend error", (msg) => {
+      alert("❌ " + msg);
+    });
+
+  </script>
+</body>
+</html>

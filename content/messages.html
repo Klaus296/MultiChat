@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Messages</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+    <div id="friends" class="tab-content bg-white rounded-2xl shadow-xl p-6 mb-6">
+      <h2 class="text-xl sm:text-2xl font-semibold mb-4">Friends</h2>
+      <div id="friends-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Друзья будут добавляться сюда -->
+      </div>
+    </div>
+    
+    <script>
+        const socket = io();
+        document.addEventListener("DOMContentLoaded", () => {
+            socket.emit("get user-name"); // запрос имени
+            socket.emit("show friends");  // запрос списка друзей
+            socket.emit("show rooms");
+            // socket.on("set name", (name) => {
+            //     document.getElementById("user-name").textContent = name;
+            // });
+            // socket.on("username",(username)=>{
+            //     const name = username;
+            // })
+            socket.on("friends", (userFriends) => {
+                const friendsContainer = document.querySelector("#friends-list");
+                friendsContainer.innerHTML = "";
+                socket.on("createRoomSuccess", (newRoom) => {
+                console.log("New Room");
+                });
+                if (!userFriends || userFriends.length === 0) {
+                friendsContainer.innerHTML = `<p class="text-gray-500">No friends found</p>`;
+                return;
+                }
+                userFriends.forEach(friendName => {
+                const friendCard = document.createElement("div");
+                friendCard.className =
+                    "flex items-center gap-3 p-4 bg-gray-100 rounded-lg shadow-sm hover:bg-gray-200 transition";
+                friendCard.innerHTML = `
+                    <div class="w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold">
+                    ${friendName[0].toUpperCase()}
+                    </div>
+                    <span class="font-medium">${friendName}</span>
+                `;
+                friendCard.onclick = () => toFriendChat(friendName);
+                friendsContainer.appendChild(friendCard);
+                });
+            });
+        });
+        
+    </script>
+</body>
+</html>

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <title>Вхід</title>
+  <link rel="stylesheet" href="auth/style.css" />
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="http://localhost:5050/socket.io/socket.io.js"></script>
+</head>
+<body>
+  <div id="login-content">
+    <a href="/" id="register-btn" style="margin: 0; position: absolute; top: 2%; background-color: #4f46e5; right: 4%; color: white; font-size: 1.2em; padding: 6px 12px; border-radius: 8px;">
+      Реєстрація
+    </a>
+
+    <div id="login-form">
+      <form id="loginForm">
+        <input id="user-name" type="text" placeholder="Username" required />
+        <input id="user-password" type="text" placeholder="Password" required />
+        <input type="submit" value="Login" />
+      </form>
+    </div>
+  </div>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, #e0e7ff, #c3dafe);
+    }
+    #login-form {
+      display: flex; 
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    #loginForm {
+      background: white;
+      padding: 2rem;
+      border-radius: 1rem;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      width: 100%;
+      max-width: 400px;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    #loginForm:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 6px 30px rgba(0, 0, 0, 0.15);
+    }
+    input[type="text"], input[type="password"] {
+      width: 100%;
+      padding: 0.75rem;
+      margin-bottom: 1rem;
+      border: 1px solid #d1d5db;
+      border-radius: 0.5rem;
+      font-size: 1rem;
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+    input[type="text"]:focus, input[type="password"]:focus {
+      outline: none;
+      border-color: #6366f1;
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+    }
+    input[type="submit"] {
+      width: 100%;
+      padding: 0.75rem;
+      background: #6366f1;
+      color: white;
+      border: none;
+      border-radius: 0.5rem;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.3s ease, transform 0.2s ease;
+    }
+    input[type="submit"]:hover {
+      background: #4f46e5;
+      transform: translateY(-2px);
+    }
+    input[type="submit"]:active {
+      transform: translateY(0);
+    }
+  </style>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const socket = io("http://localhost:5050");
+
+      // Если уже авторизован — редирект в чат
+      fetch("/api/me")
+        .then(res => res.json())
+        .then(user => {
+          if (user && user.name) {
+            window.location.href = "/chat";
+          }
+        })
+        .catch(() => {});
+
+      document.getElementById("loginForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const name = document.getElementById("user-name").value.trim();
+        const password = document.getElementById("user-password").value.trim();
+
+        if (!name || !password) return alert("❌ Заповніть всі поля");
+
+        try {
+          const res = await fetch("/api/login-or-register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, password })
+          });
+
+          const data = await res.json();
+
+          if (res.ok && data.success) {
+            window.location.href = "/chat";
+          } else {
+            alert("❌ " + (data.message || "Помилка входу"));
+          }
+        } catch (err) {
+          console.error("❌ Помилка входу:", err);
+          alert("❌ Помилка з'єднання з сервером");
+        }
+      });
+    });
+  </script>
+</body>
+</html>
