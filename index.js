@@ -13,9 +13,7 @@ const filePath = path.join(__dirname, "users.json");
 if (!fs.existsSync(filePath)) fs.writeFileSync(filePath, "[]", "utf8");
 let users = JSON.parse(fs.readFileSync(filePath, "utf8"));
 const username = users.length > 0 ? users[users.length - 1].username : null;
-const savedRooms = users.length > 0 ? users[users.length - 1].savedRooms || [] : [];
-const mainRooms = users.length > 0 ? users[users.length - 1].mainRooms || [] : [];
-const userFriends = users.length > 0 ? users[users.length - 1].userFriends || [] : [];
+
 const app = express();
 const server = http.createServer(app);
 let list = 0
@@ -125,12 +123,12 @@ app.get("/main",(req,res)=>{
   res.sendFile(path.join(__dirname, "content", "chat.html"));
 })
 app.get("/your",(req,res)=>{
-  const chatName = req.query.name;
-  if (!chatName) {
-    return res.send("❌ Комната не указана");
-  }
+  // const chatName = req.query.name;
+  // if (!chatName) {
+  //   return res.send("❌ Комната не указана");
+  // }
 
-  console.log("➡ Пользователь зашёл в комнату:", chatName);
+  // console.log("➡ Пользователь зашёл в комнату:", chatName);
 
   res.sendFile(path.join(__dirname, "content", "chat.html"));
 });
@@ -150,11 +148,9 @@ io.on("connection", (socket) => {
   });
 
   socket.on("add message", (msg) => {
-    console.log(username)
-    if (!socket.roomName) return; 
-    console.log(`💬 Сообщение в ${socket.roomName}:`, msg);
-
-    io.to(socket.roomName).emit("add mess", { msg, username });
+    console.log(msg)
+    
+    socket.emit("add mess", { msg });
   });
   
   const currentUser = users.length > 0 ? users[users.length - 1].username : null;
@@ -205,6 +201,34 @@ io.on("connection", (socket) => {
       socket.emit("rooms", []);
     }
   })
+  socket.on("del account",()=>{
+    const username = users.length > 0 ? users[users.length - 1].username : null;
+    const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
+    const currentUser = usersData[usersData.length - 1]; 
+
+    const index = usersData.findIndex(u => u.username === username);
+    
+    if (!username) {
+      socket.emit("user del");
+      return;
+    }
+    try{
+      User.destroy({where:{name:"Stas"},
+        attributes:["name"],
+      });
+      if (index !== -1) {
+        usersData.splice(index, 1);
+        fs.writeFileSync(filePath, JSON.stringify(usersData, null, 2));
+        console.log(`✅ Користувач ${username} видалений з users.json`);
+      }
+      console.log("✅ Користувач видалений:", username);
+      socket.emit("user del");
+    }catch(err){
+      console.log(err);
+    }
+    
+  });
+
   socket.on("register", async ({ name, password,language }) => {
     console.log("➡ Реєстрація:", name);
     if (users.some(u => u.username === name)) {
@@ -344,8 +368,19 @@ io.on("connection", (socket) => {
       bio: usersData[currentIndex].bio
     });
   });
+  socket.on("get hash",(friend,me)=>{
+    const hash = getPrivateRoomId(friend,me);
+    socket.emit("set hash",hash);
+  });
+  socket.on("add to main room",(room)=>{
+    const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
+    const currentUser = usersData[usersData.length - 1];
 
+    if (!currentUser.mainRooms) currentUser.mainRooms = [];
+    currentUser.mainRooms.push(room);
 
+    fs.writeFileSync(filePath, JSON.stringify(usersData, null, 2));
+  })
 
   socket.on("del user",()=>{
     console.log("Del-user")
@@ -353,7 +388,7 @@ io.on("connection", (socket) => {
       attributes:["useraname"],
     });
   })
-  socket.on("createRoom", async ({ roomName, roomDescription, roomImage }) => {
+  socket.on("createRoom", async ({ roomName, roomDescription }) => {
     if (!roomName || !roomDescription) {
         socket.emit("createRoomError", "Будь ласка, заповніть всі поля");
         return;
@@ -402,6 +437,7 @@ io.on("connection", (socket) => {
     const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
     const currentUser = usersData[usersData.length - 1]; 
     const username = currentUser.username || "User"; 
+    console.log(username);
     socket.emit("set username", username);
   })
   socket.on("set one", () => {
@@ -452,4 +488,7 @@ io.on("connection", (socket) => {
 
 server.listen(5050, () => {
   console.log("🚀 Сервер працює на http://localhost:5050");
+  const result = getPrivateRoomId("Liza","Stas");
+  console.log(`Result: ${result}`);
 });
+// Result: 58b372b709cfda0fb272d736895956b5ec88c70112add7b938f7bbeb9a235e48

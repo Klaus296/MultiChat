@@ -111,6 +111,7 @@
           onclick="window.location.href='/main?room=${encodeURIComponent(room.room_name)}'">
           Join Room
         </button>
+        <button onclick="${socket.emit("add to main room",(room.room_name))}" class="bg-blue-500 text-white">Save</button>
       `;
       container.appendChild(div);
     });
