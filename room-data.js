@@ -26,6 +26,10 @@ const UserRoom = sequelize.define("user_rooms", {
     type: DataTypes.STRING,
     allowNull: false
   },
+  language: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
 }, {
   tableName: "user_rooms",
   timestamps: false

@@ -177,8 +177,10 @@
             <h2>${room.room_name}</h2>
             <p>${room.description || ""}</p>
             <button class="join-btn" onclick="window.location.href='/main?room=${encodeURIComponent(room.room_name)}'">Join Room</button>
+            <button id="saveRoom">Save</button>
           `;
           container.appendChild(div);
+          document.getElementById("saveRoom").onclick = ()=>{socket.emit("saveRoom",(room.room_name))}
         });
       } else {
         results.forEach(user => {

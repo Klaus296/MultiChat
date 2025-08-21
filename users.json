@@ -2,14 +2,11 @@
   {
     "username": "Stas",
     "pass": "1234",
-    "createdAt": "2025-08-19T16:03:34.316Z",
+    "createdAt": "2025-08-21T06:56:00.628Z",
     "language": "uk",
     "savedRooms": [],
-    "mainRooms": [
-      "The Room"
-    ],
-    "userFriends": [
-      "Stas"
-    ]
+    "mainRooms": [],
+    "userFriends": ["Liza"],
+    "email": "kravcenkostanislav516@gmail.com"
   }
 ]

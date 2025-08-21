@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8" />
   <title>Реєстрація</title>
-  <link rel="stylesheet" href="auth/style.css" />
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="http://localhost:5050/socket.io/socket.io.js"></script>
   <script>
@@ -15,15 +14,22 @@
     fetch("/api/users")
       .then(res => res.json())
       .then(users => {
-        if (Array.isArray(users) && users.length > 0) {
-          window.location.href = "/chat";
-        }
-      });
-
+      console.log("typeof:", typeof users, "isArray:", Array.isArray(users), users);
+      if (Array.isArray(users) && users.length > 0) {
+        window.location.href = "/chat";
+      }
+      })
+      .catch(err => console.error("❌ Error fetching users:", err));
+  
+  document.getElementById("enter-btn").addEventListener("click",()=>{
+    console.log("click");
+    window.location.href = "/enter";
+  });
     document.getElementById("registerForm").addEventListener("submit", async (e) => {
       e.preventDefault();
 
       const name = document.getElementById("user-name").value.trim();
+      const email = document.getElementById("user-email").value.trim();
       const password = document.getElementById("user-password").value.trim();
       const language = document.getElementById("language").value.trim();
       // Валидация имени и пароля
@@ -31,7 +37,9 @@
       if (name.length > 20) return alert("Nickname cannot be more than 20 characters");
       if (password.length < 4) return alert("Password cannot be less than 4 characters");
       if (password.length > 20) return alert("Password cannot be more than 20 characters");
-
+      if (!validateEmail(email)){
+        return alert("Uncorrect email");
+      }
       try {
         // Проверка на сервере
         const res = await fetch(`/api/check-user/${encodeURIComponent(name)}`);
@@ -43,7 +51,7 @@
         }
 
         // Если нет — регистрируем
-        socket.emit("register", { name, password,language });
+        socket.emit("register", { name, password,language,email });
 
       } catch (err) {
         console.error("❌ Error checking user:", err);
@@ -56,19 +64,22 @@
     socket.on("registerError", msg => alert("❌ " + msg));
     socket.on("redirectToChat", () => window.location.href = "/chat");
   });
-  document.getElementById("enter-btn").addEventListener("click",()=>{
-    console.log("click");
-    window.location.href = "/enter";
-  })
+  function validateEmail(email) {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(email);
+  }
+
+
 </script>
 
 </head>
 <body>
   <div id="register-content">
-    <a href="/enter" id="enter-btn" style="margin: 0;position: absolute; top:2%;background-color: #4f46e5; right:4%; color: red; font-size: 1.5em;" align="right">Enter</a>
+    <a  id="enter-btn" style="margin: 0;position: absolute; top:2%;background-color: #4f46e5; right:4%; color: red; font-size: 1.5em;" align="right">Enter</a>
     <div id="register-form">
       <form id="registerForm">
         <input id="user-name" type="text" placeholder="Username" required />
+        <input id="user-email" type="text" placeholder="Email" required />
         <input id="user-password" type="text" placeholder="Password" required />
         
         <select id="language" class="w-full p-2 border rounded">

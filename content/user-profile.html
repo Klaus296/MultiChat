@@ -12,6 +12,7 @@
   const mainRooms = [];
   document.addEventListener("DOMContentLoaded", () => {
    // запрос имени
+  socket.emit("get user name")
   socket.emit("show friends");  // запрос списка друзей
   socket.emit("show rooms");
   socket.on("set name", (name) => {
@@ -64,14 +65,16 @@
       console.log(`Friends: ${chat}`);
       console.log("Переход к чату с:", friend);
       console.log("Переход к чату с:", name);
+      socket.emit("get friend",(friend));
+      
     });
     socket.emit("get hash",{friend:friend, mainName:name});
 
     
   }
   socket.on("set hash",(hash)=>{
-    console.log(hash)
-    window.location.href = `/your?name=${encodeURIComponent(hash)}`;
+    console.log(hash);    
+    window.location.href = `/users-chat?name=${encodeURIComponent(hash)}`;    
   })
 });
 
@@ -90,11 +93,18 @@ socket.on("rooms", (rooms) => {
       "p-4 bg-indigo-100 rounded-lg shadow hover:bg-indigo-200 transition";
     roomCard.innerHTML = `
       <h3 class="font-semibold">${room}</h3>
+      <button id="join-room" class="text-red-500 bg-gray-200 px-2 py-1 rounded hover:bg-gray-300" >Join</button>
+      <button id="del-room" class="text-red-500 bg-gray-200 px-2 py-1 rounded hover:bg-gray-300" >Delete</button>
     `;
+    
     roomsContainer.appendChild(roomCard);
-    roomCard.onclick = () => toRoomChat(room);
+    document.getElementById("join-room").onclick = ()=>{console.log("Join")};
+    document.getElementById("del-room").onclick = ()=>{console.log(room);socket.emit("del room",(room))};
   });
 });
+socket.on("room delete error",(err)=>{
+  alert(err);
+})
 function toRoomChat(roomName){
   window.location.href='/main?room=${encodeURIComponent(room)}';
 }
@@ -135,8 +145,8 @@ function toRoomChat(roomName){
   <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-5xl">
     <!-- Profile Header -->
     <div class="bg-white rounded-2xl shadow-xl p-6 mb-6 text-center sm:text-left">
-      <h1 id="user-name" class="text-2xl sm:text-3xl font-bold">User</h1>
-      <p class="text-gray-600 mt-2">No bio</p>
+      <a href="/chat">Home</a>
+      <h1 style="text-align: center;" id="user-name" class="text-2xl sm:text-3xl font-bold">User</h1>
     </div>
 
     <!-- Tabs Navigation -->

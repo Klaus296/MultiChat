@@ -28,13 +28,18 @@ const User = sequelize.define("multichat_users", {
     defaultValue: Sequelize.NOW,
   },
   pass: {
-    type: DataTypes.STRING(32),
+    type: DataTypes.STRING(80),
     allowNull: false,
   },
   language: {
     type: DataTypes.STRING(2),
     allowNull: false,
     defaultValue: "en",
+  },
+  email: {
+    type: DataTypes.STRING(200),
+    allowNull: false,
+    defaultValue: "undefined",
   },
 }, {
   tableName: "multichat-users", // Назва таблиці з дефісом

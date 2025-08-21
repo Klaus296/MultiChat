@@ -8,6 +8,7 @@ const { Server } = require("socket.io");
 const { sequelize, User } = require("./db");
 const { UserRoom } = require("./room-data");
 const { where } = require("sequelize");
+const {UserMessage} = require("./user-messages");
 
 const filePath = path.join(__dirname, "users.json");
 if (!fs.existsSync(filePath)) fs.writeFileSync(filePath, "[]", "utf8");
@@ -24,7 +25,7 @@ function getPrivateRoomId(user1, user2) {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 const io = new Server(server);
-
+const chatNow = [];
 sequelize.authenticate()
   .then(() => console.log("✅ Підключено до бази даних"))
   .catch((err) => console.error("❌ Помилка підключення:", err.message));
@@ -35,7 +36,7 @@ app.get("/", (req, res) => res.sendFile(path.join(__dirname, "content", "auth.ht
 app.get("/enter",(req,res)=> res.sendFile(path.join(__dirname,"content","user-enter.html")))
 app.get("/create", (req, res) => res.sendFile(path.join(__dirname, "content", "create-room.html")));
 app.get("/chat", (req, res) => res.sendFile(path.join(__dirname, "content", "home.html")));
-app.get("/api/users", (req, res) => res.sendFile(filePath));
+app.get("/users-chat",(req,res)=>{res.sendFile(path.join(__dirname,"content","users-chat.html"))})
 app.get("/messages",(req,res)=>{res.sendFile(path.join(__dirname,"content","messages.html"))});
 app.get("/us_profile", (req, res) => res.sendFile(path.join(__dirname, "content", "user-profile.html")));
 app.get("/search",(req,res)=>res.sendFile(path.join(__dirname,"content","search.html")));
@@ -98,7 +99,12 @@ app.post("/api/login-or-register", async (req, res) => {
     res.status(500).json({ success: false, message: "Помилка сервера" });
   }
 });
-
+app.get("/chatNow.json", (req, res) => {
+  const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
+  const currentUser = usersData[usersData.length - 1]; // берем последнего вошедшего
+  const chatNow = currentUser.chatNow || [];
+  res.json({ chatNow, username: currentUser.username || "User" });
+});
 app.get("/api/check-user/:name", async (req, res) => {
   const username = req.params.name.trim();
   if (!username) return res.json({ exists: false });
@@ -111,7 +117,29 @@ app.get("/api/check-user/:name", async (req, res) => {
     res.status(500).json({ exists: false, error: "Server error" });
   }
 });
+app.get("/api/users", (req, res) => {
+  try {
+    if (!fs.existsSync(filePath)) {
+      fs.writeFileSync(filePath, "[]", "utf8");
+    }
 
+    let usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
+
+    // Якщо файл пошкоджений або це не масив → робимо масив
+    if (!Array.isArray(usersData)) {
+      console.warn("⚠ users.json не є масивом, відновлюю");
+      usersData = [];
+      fs.writeFileSync(filePath, JSON.stringify(usersData, null, 2));
+    }
+
+    res.json(usersData);
+  } catch (err) {
+    console.error("❌ Error reading users.json:", err);
+    res.json([]);
+  }
+});
+
+app.get
 app.get("/main",(req,res)=>{
   const roomName = req.query.room; 
   if (!roomName) {
@@ -146,13 +174,57 @@ io.on("connection", (socket) => {
   socket.on("login", (username) => {
     socket.username = username;
   });
+  socket.on("set chat", async ({ chatNow, mainName }) => {
+    console.log("➡ Отримання чату:", chatNow, mainName);
+    try {
+      if (!chatNow || !mainName) {
+        socket.emit("chat error", "Некоректні дані для створення чату");
+        return;
+      }
+      const newMessage = await UserMessage.create({
+        sender_id: chatNow[0],
+        receiver_id: mainName,
+        message: "Початок чату",
+      });
+      console.log("Chat set:", chatNow, mainName);
+      socket.emit("chat set", newMessage);
+    } catch (err) {
+      console.error("❌ Помилка створення чату:", err);
+      socket.emit("chat error", "Помилка створення чату");
+    }
+  });
+  socket.on("del room",(room)=>{
+    console.log("del")
+    const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
+    const currentUser = usersData[usersData.length - 1];
 
+    // room - это имя комнаты, удаляем из savedRooms по значению
+    if (currentUser && Array.isArray(currentUser.savedRooms)) {
+      const index = currentUser.savedRooms.indexOf(room);
+      if (index !== -1) {
+      currentUser.savedRooms.splice(index, 1);
+      fs.writeFileSync(filePath, JSON.stringify(usersData, null, 2));
+      socket.emit("room deleted", room);
+      } else {
+      socket.emit("room delete error", "Комната не найдена в savedRooms");
+      }
+    } else {
+      socket.emit("room delete error", "Нет сохранённых комнат");
+    }
+  });
   socket.on("add message", (msg) => {
     console.log(msg)
     
     socket.emit("add mess", { msg });
   });
-  
+  socket.on("send message",()=>{
+
+  })
+  socket.on("get friend",()=>{
+    console.log("Get friend");
+    console.log(chatNow[0].friend);
+    socket.emit("set friend",(chatNow[0].friend));
+  })
   const currentUser = users.length > 0 ? users[users.length - 1].username : null;
 
   socket.on("add friend", ({ name }) => {
@@ -229,22 +301,24 @@ io.on("connection", (socket) => {
     
   });
 
-  socket.on("register", async ({ name, password,language }) => {
+  socket.on("register", async ({ name, password,language,email }) => {
     console.log("➡ Реєстрація:", name);
+    const hashedPassword = await bcrypt.hash(password, 10);
     if (users.some(u => u.username === name)) {
       socket.emit("useRegister");
       return;
     }
     try {
       const newUser = await User.create({
-        name,
-        pass: password,
+        name:name,
+        pass: hashedPassword,
         status: "user",
         date: new Date(),
-        language: language
+        language: language,
+        email: email
       });
 
-      users.push({ username: name, pass: password, createdAt: new Date().toISOString(),language:language,savedRooms:[],mainRooms:[],userFriends:[] });
+      users.push({ username: name, pass: password, createdAt: new Date().toISOString(),language:language,savedRooms:[],mainRooms:[],userFriends:[],email:email,chatNow:chatNow });
       fs.writeFileSync(filePath, JSON.stringify(users, null, 2));
 
       console.log("✅ Користувач створений:", name);
@@ -255,7 +329,7 @@ io.on("connection", (socket) => {
       socket.emit("registerError", "Validation error");
     }
   });
-  socket.on("get user-name",()=>{
+  socket.on("get user name",()=>{
     const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
     const username = usersData.length > 0 ? usersData[usersData.length - 1].username : null;
     socket.emit("set name",username);
@@ -274,8 +348,13 @@ io.on("connection", (socket) => {
       socket.emit("roomsList", []);
     }
   });
-
-  socket.on("createRoom", async ({ roomName, roomDescription }) => {
+  socket.on("saveRoom",(room)=>{
+  const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
+  const currentUser = usersData[usersData.length - 1];
+  currentUser.savedRooms.push(room);
+  fs.writeFileSync(filePath, JSON.stringify(currentUser, null, 2));
+  })
+  socket.on("createRoom", async ({ roomName, roomDescription,language }) => {
     if (!roomName || !roomDescription) {
       socket.emit("createRoomError", "Заповніть всі поля");
       return;
@@ -295,7 +374,8 @@ io.on("connection", (socket) => {
         room_name: roomName,
         description: roomDescription,
         user_name: currentUser.username, // имя из JSON
-        date: new Date()
+        date: new Date(),
+        language: language || "en" 
       });
 
       console.log("✅ Кімната створена:", newRoom.toJSON());
@@ -370,17 +450,11 @@ io.on("connection", (socket) => {
   });
   socket.on("get hash",(friend,me)=>{
     const hash = getPrivateRoomId(friend,me);
+    chatNow.push(friend);
+    console.log(chatNow);
     socket.emit("set hash",hash);
   });
-  socket.on("add to main room",(room)=>{
-    const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
-    const currentUser = usersData[usersData.length - 1];
-
-    if (!currentUser.mainRooms) currentUser.mainRooms = [];
-    currentUser.mainRooms.push(room);
-
-    fs.writeFileSync(filePath, JSON.stringify(usersData, null, 2));
-  })
+  
 
   socket.on("del user",()=>{
     console.log("Del-user")
@@ -485,6 +559,7 @@ io.on("connection", (socket) => {
   });
 
 });
+
 
 server.listen(5050, () => {
   console.log("🚀 Сервер працює на http://localhost:5050");
