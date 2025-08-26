@@ -9,12 +9,31 @@ const { sequelize, User } = require("./db");
 const { UserRoom } = require("./room-data");
 const { where } = require("sequelize");
 const {UserMessage} = require("./user-messages");
-
+const { MafiaUser } = require("./mafia-users");
+const { Op } = require("sequelize");
 const filePath = path.join(__dirname, "users.json");
 if (!fs.existsSync(filePath)) fs.writeFileSync(filePath, "[]", "utf8");
 let users = JSON.parse(fs.readFileSync(filePath, "utf8"));
 const username = users.length > 0 ? users[users.length - 1].username : null;
+const chatsFile = path.join(__dirname, "chats.json");
 
+// Загрузка истории
+function loadChatHistory(chatNow) {
+    if (!fs.existsSync(chatsFile)) return [];
+    const data = JSON.parse(fs.readFileSync(chatsFile, "utf-8"));
+    return data[chatNow] || [];
+}
+
+// Сохранение нового сообщения
+function saveMessage(chatNow, message) {
+    let data = {};
+    if (fs.existsSync(chatsFile)) {
+        data = JSON.parse(fs.readFileSync(chatsFile, "utf-8"));
+    }
+    if (!data[chatNow]) data[chatNow] = [];
+    data[chatNow].push(message);
+    fs.writeFileSync(chatsFile, JSON.stringify(data, null, 2));
+}
 const app = express();
 const server = http.createServer(app);
 let list = 0
@@ -25,7 +44,9 @@ function getPrivateRoomId(user1, user2) {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 const io = new Server(server);
-const chatNow = [];
+
+require("./mafia-game")(io);
+
 sequelize.authenticate()
   .then(() => console.log("✅ Підключено до бази даних"))
   .catch((err) => console.error("❌ Помилка підключення:", err.message));
@@ -33,13 +54,18 @@ sequelize.authenticate()
 app.use(express.static(path.join(__dirname, "content")));
 
 app.get("/", (req, res) => res.sendFile(path.join(__dirname, "content", "auth.html")));
-app.get("/enter",(req,res)=> res.sendFile(path.join(__dirname,"content","user-enter.html")))
+app.get("/join_mafia", (req, res) => res.sendFile(path.join(__dirname, "content", "mafia-client.html")));
+app.get("/enter",(req,res)=> res.sendFile(path.join(__dirname,"content","user-enter.html")));
 app.get("/create", (req, res) => res.sendFile(path.join(__dirname, "content", "create-room.html")));
 app.get("/chat", (req, res) => res.sendFile(path.join(__dirname, "content", "home.html")));
-app.get("/users-chat",(req,res)=>{res.sendFile(path.join(__dirname,"content","users-chat.html"))})
+app.get("/users-chat",(req,res)=>{res.sendFile(path.join(__dirname,"content","users-chat.html"))});
 app.get("/messages",(req,res)=>{res.sendFile(path.join(__dirname,"content","messages.html"))});
 app.get("/us_profile", (req, res) => res.sendFile(path.join(__dirname, "content", "user-profile.html")));
 app.get("/search",(req,res)=>res.sendFile(path.join(__dirname,"content","search.html")));
+app.get("/room-chat", (req, res) => {
+  res.sendFile(path.join(__dirname, "content", "chat.html"));
+});
+
 app.post("/api/login-or-register", async (req, res) => {
   try {
     const { name, password } = req.body;
@@ -99,12 +125,7 @@ app.post("/api/login-or-register", async (req, res) => {
     res.status(500).json({ success: false, message: "Помилка сервера" });
   }
 });
-app.get("/chatNow.json", (req, res) => {
-  const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
-  const currentUser = usersData[usersData.length - 1]; // берем последнего вошедшего
-  const chatNow = currentUser.chatNow || [];
-  res.json({ chatNow, username: currentUser.username || "User" });
-});
+
 app.get("/api/check-user/:name", async (req, res) => {
   const username = req.params.name.trim();
   if (!username) return res.json({ exists: false });
@@ -139,30 +160,20 @@ app.get("/api/users", (req, res) => {
   }
 });
 
-app.get
 app.get("/main",(req,res)=>{
-  const roomName = req.query.room; 
-  if (!roomName) {
-    return res.send("❌ Комната не указана");
-  }
-
-  console.log("➡ Пользователь зашёл в комнату:", roomName);
-
   res.sendFile(path.join(__dirname, "content", "chat.html"));
 })
 app.get("/your",(req,res)=>{
-  // const chatName = req.query.name;
-  // if (!chatName) {
-  //   return res.send("❌ Комната не указана");
-  // }
-
-  // console.log("➡ Пользователь зашёл в комнату:", chatName);
-
-  res.sendFile(path.join(__dirname, "content", "chat.html"));
+  res.sendFile(path.join(__dirname, "content", "users-chat.html"));
 });
 io.on("connection", (socket) => {
   console.log("🔌 Клієнт підключився:", socket.id);
-  
+  socket.on("userLeft", () => {
+    const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
+    const currentUser = usersData[usersData.length - 1];
+    currentUser.chatNow = ""; // очищаем
+    fs.writeFileSync(filePath, JSON.stringify(usersData, null, 2));
+  });
   socket.on("joinRoom", (roomName) => {
     if (!roomName) return;
     socket.join(roomName);
@@ -174,25 +185,124 @@ io.on("connection", (socket) => {
   socket.on("login", (username) => {
     socket.username = username;
   });
-  socket.on("set chat", async ({ chatNow, mainName }) => {
-    console.log("➡ Отримання чату:", chatNow, mainName);
-    try {
-      if (!chatNow || !mainName) {
-        socket.emit("chat error", "Некоректні дані для створення чату");
-        return;
-      }
-      const newMessage = await UserMessage.create({
-        sender_id: chatNow[0],
-        receiver_id: mainName,
-        message: "Початок чату",
+  socket.on("join_room", async ({ user, room }) => {
+    socket.join(room);
+
+    // Проверим, есть ли этот игрок в БД
+    let player = await MafiaUser.findOne({ where: { user, room } });
+
+    if (!player) {
+      // Добавляем игрока в базу
+      player = await MafiaUser.create({
+        user,
+        room,
+        role: "pending", // роль выдаст админ
+        do: "none",
       });
-      console.log("Chat set:", chatNow, mainName);
-      socket.emit("chat set", newMessage);
+    }
+
+    // Сообщаем всем, что новый игрок вошёл
+    io.to(room).emit("system_message", `${user} вошёл в комнату ${room}`);
+  });
+
+  // Админ раздаёт роли
+  socket.on("assign_roles", async ({ room, roles }) => {
+    // roles = { "Игрок1": "mafia", "Игрок2": "citizen", ... }
+    for (const [user, role] of Object.entries(roles)) {
+      await MafiaUser.update({ role }, { where: { user, room } });
+    }
+
+    io.to(room).emit("system_message", "🎭 Роли розданы админом!");
+  });
+
+  // Игрок выполняет действие (например голосует)
+  socket.on("player_action", async ({ user, room, action }) => {
+    await MafiaUser.update({ do: action }, { where: { user, room } });
+
+    io.to(room).emit("system_message", `${user} сделал действие: ${action}`);
+  });
+
+  // Получить список игроков в комнате
+  socket.on("get_players", async (room, callback) => {
+    const players = await MafiaUser.findAll({ where: { room } });
+    callback(players);
+  });
+
+  socket.on("disconnect", () => {
+    console.log("❌ Игрок вышел:", socket.id);
+  });
+
+  // Отправка нового сообщения
+  socket.on("set chat", async ({ chatNow, mainName, msg }) => {
+    try {
+      const roomId = getPrivateRoomId(mainName, chatNow);
+
+      let chat = await UserMessage.findOne({
+        where: {
+          [Op.or]: [
+            { sender: mainName, recipient: chatNow },
+            { sender: chatNow, recipient: mainName }
+          ]
+        }
+      });
+
+      let updatedMessages = [];
+      if (!chat) {
+        updatedMessages = [{ id: Date.now(), username: mainName, text: msg, date: new Date() }];
+        chat = await UserMessage.create({
+          sender: mainName,
+          recipient: chatNow,
+          messages: updatedMessages
+        });
+      } else {
+        let oldMessages = typeof chat.messages === "string" ? JSON.parse(chat.messages) : chat.messages;
+        if (!Array.isArray(oldMessages)) oldMessages = [];
+        updatedMessages = [...oldMessages, { id: Date.now(), username: mainName, text: msg, date: new Date() }];
+        await chat.update({ messages: updatedMessages });
+      }
+
+      io.to(roomId).emit("chat set", { chatNow, messages: updatedMessages });
     } catch (err) {
-      console.error("❌ Помилка створення чату:", err);
-      socket.emit("chat error", "Помилка створення чату");
+      console.error("❌ Ошибка set chat:", err);
     }
   });
+
+
+
+  // Подключение к чату и выдача истории
+  socket.on("join chat", async ({ mainName, chatNow }) => {
+    try {
+      const roomId = getPrivateRoomId(mainName, chatNow);
+
+      // Загружаем все переписки между этими двумя
+      let chat = await UserMessage.findOne({
+        where: {
+          [Op.or]: [
+            { sender: mainName, recipient: chatNow },
+            { sender: chatNow, recipient: mainName }
+          ]
+        }
+      });
+
+      let messages = [];
+      if (chat) {
+        messages = typeof chat.messages === "string" ? JSON.parse(chat.messages) : chat.messages;
+      }
+
+      socket.join(roomId);
+      socket.emit("chat set", { chatNow, messages });
+
+      console.log(`${mainName} подключился к ${roomId}, сообщений: ${messages.length}`);
+    } catch (err) {
+      console.error("❌ Ошибка join chat:", err);
+      socket.emit("chat set", { chatNow, messages: [] });
+    }
+  });
+
+
+
+
+
   socket.on("del room",(room)=>{
     console.log("del")
     const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
@@ -217,14 +327,110 @@ io.on("connection", (socket) => {
     
     socket.emit("add mess", { msg });
   });
-  socket.on("send message",()=>{
+  socket.on("get messages", async () => {
+    try {
+      const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
+      const currentUser = usersData[usersData.length - 1];
+      const chatNow = currentUser.chatNow;
+      console.log("Текущий пользователь:", currentUser.username);
+      console.log("Его chatNow:", currentUser.chatNow);
 
-  })
-  socket.on("get friend",()=>{
+      if (!chatNow) {
+        socket.emit("chat seted", []);
+        console.log("Нет выбранного собеседника (chatNow пуст)");
+        return;
+      }
+
+      const chat = await UserMessage.findAll({
+        where: {
+          [Op.or]: [
+            { sender: currentUser.username, recipient: chatNow },
+            { sender: chatNow, recipient: currentUser.username }
+          ]
+        },
+        attributes: ["recipient", "sender", "messages"],
+        raw: true
+      });
+
+      socket.emit("chat set", (chat));
+      console.log("Переписка:", chat);
+
+    } catch (err) {
+      console.error("Ошибка при получении сообщений:", err);
+      socket.emit("chat set", []);
+    }
+  });
+  // Удаление сообщения
+  socket.on("delete message", async ({ id, mainName, chatNow }) => {
+    try {
+      const roomId = getPrivateRoomId(mainName, chatNow);
+
+      let chat = await UserMessage.findOne({
+        where: {
+          [Op.or]: [
+            { sender: mainName, recipient: chatNow },
+            { sender: chatNow, recipient: mainName }
+          ]
+        }
+      });
+
+      if (!chat) return;
+
+      let messages = typeof chat.messages === "string" ? JSON.parse(chat.messages) : chat.messages;
+      messages = messages.filter(m => m.id !== id);
+
+      await chat.update({ messages });
+
+      io.to(roomId).emit("chat set", { chatNow, messages });
+      console.log(`🗑 Удалено сообщение ${id} в ${roomId}`);
+    } catch (err) {
+      console.error("❌ Ошибка delete message:", err);
+    }
+  });
+
+
+  // Редактирование сообщения
+  // Редактирование сообщения
+  socket.on("edit message", async ({ id, text, mainName, chatNow }) => {
+    try {
+      const roomId = getPrivateRoomId(mainName, chatNow);
+
+      let chat = await UserMessage.findOne({
+        where: {
+          [Op.or]: [
+            { sender: mainName, recipient: chatNow },
+            { sender: chatNow, recipient: mainName }
+          ]
+        }
+      });
+
+      if (!chat) return;
+
+      let messages = typeof chat.messages === "string" ? JSON.parse(chat.messages) : chat.messages;
+      const index = messages.findIndex(m => m.id === id);
+      if (index !== -1) {
+        messages[index].text = text;
+        await chat.update({ messages });
+      }
+
+      io.to(roomId).emit("chat set", { chatNow, messages });
+      console.log(`✏ Сообщение ${id} изменено`);
+    } catch (err) {
+      console.error("❌ Ошибка edit message:", err);
+    }
+  });
+
+  socket.on("get friend", () => {
+    const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
+    const currentUser = usersData[usersData.length - 1];
     console.log("Get friend");
-    console.log(chatNow[0].friend);
-    socket.emit("set friend",(chatNow[0].friend));
-  })
+    console.log(currentUser.chatNow);
+    if (currentUser.chatNow.length > 0) {
+      socket.emit("set friend", currentUser.chatNow);
+    } else {
+      socket.emit("set friend", null);
+    }
+  });
   const currentUser = users.length > 0 ? users[users.length - 1].username : null;
 
   socket.on("add friend", ({ name }) => {
@@ -259,6 +465,19 @@ io.on("connection", (socket) => {
       socket.emit("friend error", "Ошибка сервера");
     }
   });
+  socket.on("add to main room",(data)=>{
+    const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
+    const currentUser = usersData[usersData.length - 1];
+
+    if (!currentUser.savedRooms) currentUser.savedRooms = [];
+    if (!currentUser.savedRooms.includes(data)) {
+      currentUser.savedRooms.push(data);
+      fs.writeFileSync(filePath, JSON.stringify(usersData, null, 2));
+      socket.emit("main room added", data);
+    } else {
+      socket.emit("main room error", "Кімната вже додана");
+    }
+  })
   socket.on("show rooms",()=>{
     try {
       const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
@@ -318,7 +537,7 @@ io.on("connection", (socket) => {
         email: email
       });
 
-      users.push({ username: name, pass: password, createdAt: new Date().toISOString(),language:language,savedRooms:[],mainRooms:[],userFriends:[],email:email,chatNow:chatNow });
+      users.push({ username: name, pass: password, createdAt: new Date().toISOString(),language:language,savedRooms:[],mainRooms:[],userFriends:[],email:email,chatNow:"",});
       fs.writeFileSync(filePath, JSON.stringify(users, null, 2));
 
       console.log("✅ Користувач створений:", name);
@@ -354,7 +573,7 @@ io.on("connection", (socket) => {
   currentUser.savedRooms.push(room);
   fs.writeFileSync(filePath, JSON.stringify(currentUser, null, 2));
   })
-  socket.on("createRoom", async ({ roomName, roomDescription,language }) => {
+  socket.on("createRoom", async ({ roomName, roomDescription,language,categorie }) => {
     if (!roomName || !roomDescription) {
       socket.emit("createRoomError", "Заповніть всі поля");
       return;
@@ -375,7 +594,8 @@ io.on("connection", (socket) => {
         description: roomDescription,
         user_name: currentUser.username, // имя из JSON
         date: new Date(),
-        language: language || "en" 
+        language: language || "en",
+        categorie: categorie,
       });
 
       console.log("✅ Кімната створена:", newRoom.toJSON());
@@ -448,12 +668,29 @@ io.on("connection", (socket) => {
       bio: usersData[currentIndex].bio
     });
   });
-  socket.on("get hash",(friend,me)=>{
-    const hash = getPrivateRoomId(friend,me);
-    chatNow.push(friend);
-    console.log(chatNow);
-    socket.emit("set hash",hash);
+  socket.on("get hash",(fr)=>{
+    const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
+    const currentUser = usersData[usersData.length - 1];
+    console.log("Get hash");
+    const me = currentUser.username;
+    currentUser.chatNow = fr;
+    const friend = fr;
+    console.log(currentUser.chatNow);
+    console.log(`Me: ${me}, Friend: ${friend}`);
+    if (!friend) {
+      socket.emit("no friend");
+      return;
+    }
+    const hash = getPrivateRoomId(friend, me);
+    console.log(`Result: ${hash}`);
+    // 👇 сохраняем имя собеседника как строку
+    
+
+    fs.writeFileSync(filePath, JSON.stringify(usersData, null, 2));
+
+    socket.emit("set hash", hash);
   });
+
   
 
   socket.on("del user",()=>{
@@ -556,14 +793,31 @@ io.on("connection", (socket) => {
         socket.emit("search result", [], list);
       }
     }
+    
   });
 
 });
-
-
+function pushToUsersJson(element){
+  const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
+  const currentUser = usersData[usersData.length - 1]; // последний вошедший
+  currentUser.element.push(push);
+  fs.writeFileSync(filePath, JSON.stringify(currentUser, null, 2));
+  return current
+}
+function spliceFromUsersJson(element){
+  const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
+  const currentUser = usersData[usersData.length - 1]; // последний вошедший
+  const index = currentUser.element.indexOf(element);
+  if (index !== -1) {
+    currentUser.element.splice(index, 1);
+    fs.writeFileSync(filePath, JSON.stringify(usersData, null, 2));
+    return true;
+  } else {
+    return false;
+  }
+}
 server.listen(5050, () => {
   console.log("🚀 Сервер працює на http://localhost:5050");
   const result = getPrivateRoomId("Liza","Stas");
   console.log(`Result: ${result}`);
 });
-// Result: 58b372b709cfda0fb272d736895956b5ec88c70112add7b938f7bbeb9a235e48

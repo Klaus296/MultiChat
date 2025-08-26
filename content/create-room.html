@@ -135,6 +135,13 @@
           <option value="yo">Yoruba</option>
           <option value="zu">Zulu</option>
         </select>
+
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Categorie</label>
+        <select id="categorie" class="w-full p-2 border rounded">
+          <option value="sport">Sport</option>
+        </select>
       </div>
       <div class="flex justify-end space-x-3">
         <button type="button" onclick="window.location.href='/'"
@@ -172,7 +179,8 @@
       const roomName = document.getElementById("roomName").value.trim();
       const roomDescription = document.getElementById("roomDescription").value.trim();
       const language = document.getElementById("language").value.trim();
-      socket.emit("createRoom", { userName, roomName, roomDescription,language });
+      const categorie = document.getElementById("categorie").value.trim();
+      socket.emit("createRoom", { userName, roomName, roomDescription,language,categorie });
     });
 
     // Уведомления

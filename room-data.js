@@ -30,6 +30,10 @@ const UserRoom = sequelize.define("user_rooms", {
     type: DataTypes.STRING,
     allowNull: false
   },
+  categorie: {
+    type: DataTypes.STRING,
+    allowNull: false
+  }
 }, {
   tableName: "user_rooms",
   timestamps: false

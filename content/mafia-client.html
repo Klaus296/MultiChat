@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Мафія — гра</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen flex items-center justify-center p-6">
+  <div class="w-full max-w-4xl bg-gray-800/60 rounded-2xl shadow-2xl p-6">
+    <div id="lobbyScreen">
+      <h1 class="text-3xl font-bold mb-4">🎭 Мафія — лобі</h1>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block mb-2">Ваш нік</label>
+          <input id="nick" class="w-full p-2 rounded bg-gray-700 border border-gray-600" placeholder="Наприклад: Stas" />
+        </div>
+        <div>
+          <label class="block mb-2">Кнопка</label>
+          <div class="flex gap-2">
+            <button id="joinBtn" class="px-4 py-2 rounded bg-green-500 hover:bg-green-600">Зайти в лобі</button>
+            <button id="leaveBtn" class="px-4 py-2 rounded bg-red-500 hover:bg-red-600 hidden">Вийти</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-6 grid grid-cols-3 gap-4">
+        <div class="bg-gray-700 p-4 rounded">
+          <div class="text-sm text-gray-300">Гравців в лобі</div>
+          <div id="lobbyCount" class="text-2xl font-bold mt-2">0</div>
+        </div>
+        <div class="bg-gray-700 p-4 rounded">
+          <div class="text-sm text-gray-300">Останні системні повідомлення</div>
+          <div id="sysMsgs" class="mt-2 text-sm h-20 overflow-auto"></div>
+        </div>
+        <div class="bg-gray-700 p-4 rounded">
+          <div class="text-sm text-gray-300">Тут з'явиться ваша кімната</div>
+          <div id="roomInfo" class="mt-2 text-sm"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="gameScreen" class="hidden">
+      <div class="flex items-center justify-between">
+        <h2 class="text-2xl font-semibold">Гра: <span id="roomName"></span></h2>
+        <div>
+          <span class="text-sm text-gray-400">Ваша роль: </span><strong id="myRole">—</strong>
+        </div>
+      </div>
+
+      <div class="mt-4 grid grid-cols-3 gap-4">
+        <div class="col-span-2 bg-gray-800 p-4 rounded">
+          <div id="phaseBanner" class="mb-3 p-3 rounded text-center bg-gray-700">Очікування...</div>
+
+          <div id="playersList" class="grid grid-cols-2 gap-2"></div>
+
+          <div id="actionsArea" class="mt-4"></div>
+        </div>
+
+        <div class="bg-gray-800 p-4 rounded">
+          <div class="text-sm text-gray-300">Логи</div>
+          <div id="log" class="mt-2 h-48 overflow-auto text-sm"></div>
+        </div>
+      </div>
+
+      <div class="mt-4 flex gap-2">
+        <button id="leaveGame" class="px-4 py-2 rounded bg-red-600">Вийти з гри</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const socket = io();
+
+  // UI елементи
+  const nickInp = document.getElementById('nick');
+  const joinBtn = document.getElementById('joinBtn');
+  const leaveBtn = document.getElementById('leaveBtn');
+  const lobbyCount = document.getElementById('lobbyCount');
+  const sysMsgs = document.getElementById('sysMsgs');
+  const roomInfo = document.getElementById('roomInfo');
+
+  const lobbyScreen = document.getElementById('lobbyScreen');
+  const gameScreen = document.getElementById('gameScreen');
+  const roomNameEl = document.getElementById('roomName');
+  const myRoleEl = document.getElementById('myRole');
+  const phaseBanner = document.getElementById('phaseBanner');
+  const playersList = document.getElementById('playersList');
+  const log = document.getElementById('log');
+  const actionsArea = document.getElementById('actionsArea');
+
+  let myNick = null;
+  let myRoom = null;
+  let myRole = null;
+  let players = [];
+
+  function addLog(text) {
+    const p = document.createElement('div'); p.textContent = text;
+    log.prepend(p);
+  }
+
+  joinBtn.onclick = () => {
+    const name = nickInp.value.trim();
+    if (!name) return alert('Введіть нік');
+    myNick = name;
+    socket.emit('mafia_join_lobby', { username: name });
+    joinBtn.classList.add('hidden');
+    leaveBtn.classList.remove('hidden');
+    addLog('Ви приєдналися в лобі як ' + name);
+  };
+
+  leaveBtn.onclick = () => {
+    socket.emit('mafia_leave_lobby', { username: myNick });
+    myNick = null;
+    joinBtn.classList.remove('hidden');
+    leaveBtn.classList.add('hidden');
+    addLog('Ви вийшли з лобі');
+  };
+
+  // Події від сервера
+  socket.on('mafia_joined_lobby', (data) => {
+    addSys('Вас додано до лобі (позиція: ' + data.position + ')');
+  });
+
+  socket.on('mafia_lobby_count', (d) => {
+    lobbyCount.textContent = d.count;
+  });
+
+  socket.on('mafia_room_assigned', (data) => {
+    // Отримали кімнату
+    myRoom = data.room;
+    players = data.players.map(p => ({ user: p.user, alive: true }));
+    showGameScreen();
+    addLog('Вас пересадили в кімнату ' + myRoom);
+  });
+
+  socket.on('mafia_your_role', (d) => {
+    myRole = d.role;
+    myRoleEl.textContent = myRole;
+    addLog('Вам назначена роль: ' + myRole);
+  });
+
+  socket.on('mafia_roles_assigned', (d) => {
+    addLog('Ролі роздані. У грі ' + d.publicCount + ' гравців.');
+  });
+
+  socket.on('mafia_game_started', () => {
+    addLog('Гра стартувала!');
+  });
+
+  socket.on('mafia_phase', (d) => {
+    phaseBanner.textContent = 'Фаза: ' + d.phase.toUpperCase() + (d.duration ? ' — ' + Math.round(d.duration/1000)+'s' : '');
+    addLog('Фаза: ' + d.phase);
+    renderActions(d.phase);
+  });
+
+  socket.on('mafia_night_result', (d) => {
+    if (d.killed) addLog('Ніч: убитий ' + d.killed);
+    else addLog('Ніч: ніхто не загинув');
+    if (d.checks && d.checks.length) {
+      d.checks.forEach(c => {
+        if (c.checker === myNick) addLog('Ви перевірили ' + c.target + ' — роль: ' + c.targetRole);
+      });
+    }
+    renderPlayers();
+  });
+
+  socket.on('mafia_vote_start', (d) => {
+    addLog('Починається голосування ('+Math.round(d.voteMs/1000)+'s). Обирайте кого вбити.');
+    renderVoteButtons();
+  });
+
+  socket.on('mafia_votes_update', (d) => {
+    addLog('Оновлення голосів: ' + JSON.stringify(d.votes));
+  });
+
+  socket.on('mafia_lynch_result', (d) => {
+    if (d.victim) addLog('День: повішено ' + d.victim);
+    else addLog('День: нікого не повісили');
+    renderPlayers();
+  });
+
+  socket.on('mafia_game_over', (d) => {
+    addLog('Гра завершена! Переможець: ' + d.winner);
+    phaseBanner.textContent = 'ГРА ЗАВЕРШЕНА — ' + d.winner.toUpperCase();
+    actionsArea.innerHTML = '';
+  });
+
+  // UI: переключення екранів
+  function showGameScreen() {
+    lobbyScreen.classList.add('hidden');
+    gameScreen.classList.remove('hidden');
+    roomNameEl.textContent = myRoom;
+    renderPlayers();
+  }
+  function showLobby() {
+    lobbyScreen.classList.remove('hidden');
+    gameScreen.classList.add('hidden');
+  }
+
+  function renderPlayers() {
+    playersList.innerHTML = '';
+    players.forEach(p => {
+      const el = document.createElement('div');
+      el.className = 'p-2 bg-gray-700 rounded flex items-center justify-between';
+      el.innerHTML = `<div>${p.user}</div><div>${p.alive ? '🟢' : '⚫'}</div>`;
+      playersList.appendChild(el);
+    });
+  }
+
+  function renderActions(phase) {
+    actionsArea.innerHTML = '';
+    if (phase === 'night') {
+      if (!myRole) return;
+      if (myRole === 'mafia') {
+        actionsArea.innerHTML = '<div class="text-sm mb-2">Ви мафія — оберіть ціль на вбивство:</div>';
+        renderTargetButtons('kill');
+      } else if (myRole === 'doctor') {
+        actionsArea.innerHTML = '<div class="text-sm mb-2">Ви лікар — оберіть кого лікувати:</div>';
+        renderTargetButtons('heal');
+      } else if (myRole === 'detective') {
+        actionsArea.innerHTML = '<div class="text-sm mb-2">Ви детектив — оберіть кого перевірити:</div>';
+        renderTargetButtons('check');
+      } else {
+        actionsArea.innerHTML = '<div class="text-sm">Ви мирний — чекайте ночі...</div>';
+      }
+    } else if (phase === 'day') {
+      actionsArea.innerHTML = '<div class="text-sm">День — обговорення. Потім голосування.</div>';
+    } else {
+      actionsArea.innerHTML = '';
+    }
+  }
+
+  function renderTargetButtons(actionType) {
+    const cont = document.createElement('div');
+    cont.className = 'grid grid-cols-2 gap-2 mt-2';
+    players.forEach(p => {
+      if (!p.alive) return;
+      const btn = document.createElement('button');
+      btn.className = 'p-2 rounded bg-blue-600 hover:bg-blue-500 text-sm';
+      btn.textContent = p.user;
+      btn.onclick = () => {
+        socket.emit('mafia_night_action', { room: myRoom, username: myNick, type: actionType, target: p.user });
+        addLog('Ви відправили нічну дію: ' + actionType + ' → ' + p.user);
+      };
+      cont.appendChild(btn);
+    });
+    actionsArea.appendChild(cont);
+  }
+
+  function renderVoteButtons() {
+    actionsArea.innerHTML = '<div class="text-sm mb-2">Голосуйте проти:</div>';
+    const cont = document.createElement('div');
+    cont.className = 'grid grid-cols-2 gap-2 mt-2';
+    players.forEach(p => {
+      if (!p.alive) return;
+      const btn = document.createElement('button');
+      btn.className = 'p-2 rounded bg-yellow-600 hover:bg-yellow-500 text-sm';
+      btn.textContent = p.user;
+      btn.onclick = () => {
+        socket.emit('mafia_vote', { room: myRoom, username: myNick, target: p.user });
+        addLog('Ви проголосували проти: ' + p.user);
+      };
+      cont.appendChild(btn);
+    });
+    actionsArea.appendChild(cont);
+  }
+
+  // leave game
+  document.getElementById('leaveGame').onclick = () => {
+    if (myRoom) {
+      socket.emit('mafia_leave_lobby', { username: myNick });
+      addLog('Ви залишили гру');
+      myRoom = null;
+      myRole = null;
+      players = [];
+      showLobby();
+    }
+  };
+
+  // Системні повідомлення
+  function addSys(txt) {
+    const d = document.createElement('div'); d.textContent = txt;
+    sysMsgs.prepend(d);
+  }
+
+  // Приклад оновлення списку гравців (сервер може розширити)
+  socket.on('mafia_player_list', (data) => {
+    players = data.players;
+    renderPlayers();
+  });
+
+</script>
+</body>
+</html>
