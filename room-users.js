@@ -8,13 +8,13 @@ const sequelize = new Sequelize("multichat-users", "root", "R9m!kZ2p#X7vQ4t", {
   port: 3306
 });
 
-const MafiaUser = sequelize.define("MafiaUser", {
+const RoomUsers = sequelize.define("MafiaUser", {
     user: {
         type: DataTypes.STRING,
         allowNull: false,
         unique: true,
     },
-    role: {
+    usename: {
         type: DataTypes.STRING,
         allowNull: true, // например "mafia", "citizen", "don", "sheriff"
     },
@@ -22,13 +22,17 @@ const MafiaUser = sequelize.define("MafiaUser", {
         type: DataTypes.STRING,
         allowNull: true, // имя комнаты/игры
     },
-    do: {
+    description: {
+        type: DataTypes.STRING,
+        allowNull: true,
+    },
+    language: {
         type: DataTypes.STRING,
         allowNull: true,
     }
 }, {
-    tableName: "mafia-users",
+    tableName: "data-rooms",
     timestamps: false // если нет createdAt и updatedAt
 });
 
-module.exports = MafiaUser;
+module.exports = RoomUsers;

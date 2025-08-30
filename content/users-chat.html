@@ -150,6 +150,10 @@
     <script>
 const socket = io();
 
+// Объявляем переменные в глобальной области видимости
+let chatNow = null;
+let mainName = null;
+
 fetch('/api/users')
 .then(response => response.json())
 .then(data => {
@@ -159,24 +163,20 @@ fetch('/api/users')
     }
 
     const currentUser = data[data.length - 1];  
-
-    // Берем имя друга напрямую (строка)
-    const chatNow = typeof currentUser.chatNow === "string"
-        ? currentUser.chatNow
-        : "";
-
-    const mainName = typeof currentUser.username === "string"
-        ? currentUser.username
-        : "Unknown";
+    
+    // Сохраняем в глобальные переменные
+    chatNow = typeof currentUser.chatNow === "string" ? currentUser.chatNow : "";
+    mainName = typeof currentUser.username === "string" ? currentUser.username : "Unknown";
 
     if (!chatNow) {
         console.error("chatNow пуст, нет выбранного собеседника");
         return;
     }
-    // socket.emit("set chat",{chatNow,mainName,msg:""})
-    // Подключаемся к чату именно с другом
-    socket.emit("join chat", { mainName, chatNow });
+    
     console.log("Открыт чат с:", chatNow, "для пользователя:", mainName);
+    
+    // Подключаемся к чату
+    socket.emit("join chat", { mainName, chatNow });
 
     document.getElementById("messageForm").addEventListener("submit", (e) => {
         e.preventDefault();
@@ -193,12 +193,13 @@ socket.on("no friend", () => {
     alert("No friend selected for chat.");
     window.location.href = "/";
 });
-let chatNow = null;
-let mainName = null;
+
 socket.on("chat set", (data) => {
+    // Обновляем chatNow если пришло в данных
     if (data.chatNow) {
         chatNow = data.chatNow;
     }
+    
     const chatContent = document.getElementById("chat-content");
     chatContent.innerHTML = "";
 
@@ -211,41 +212,103 @@ socket.on("chat set", (data) => {
 
             const div = document.createElement("div");
             div.innerHTML = `<p><strong>${name}</strong>: <span id="msgText-${index}">${escapeHtml(text)}</span></p>`;
-            div.style = "font-size:1.5em; color:#2F5C4B;";
+            div.style = "font-size:1.5em; color:#2F5C4B; margin-bottom: 10px;";
+            
             // Создаем контейнер для кнопок, скрытый по умолчанию
             const btnContainer = document.createElement("div");
             btnContainer.style.display = "none";
             btnContainer.style.marginTop = "5px";
+            btnContainer.style.gap = "10px";
 
+            // Кнопка удаления
             const deleteBtn = document.createElement("button");
             deleteBtn.textContent = "Delete";
+            deleteBtn.style.background = "#ff4444";
+            deleteBtn.style.color = "white";
+            deleteBtn.style.padding = "5px 10px";
+            deleteBtn.style.border = "none";
+            deleteBtn.style.borderRadius = "3px";
+            deleteBtn.style.cursor = "pointer";
+            
             deleteBtn.addEventListener("click", () => {
-                socket.emit("delete message", { id: msg.id, chatNow, mainName });
+                console.log("Удаление сообщения:", msg.id, "mainName:", mainName, "chatNow:", chatNow);
+                if (mainName && chatNow) {
+                    socket.emit("delete message", { 
+                        id: msg.id, 
+                        mainName: mainName, 
+                        chatNow: chatNow 
+                    });
+                } else {
+                    console.error("mainName или chatNow не определены");
+                }
                 btnContainer.style.display = "none";
             });
 
+            // Кнопка редактирования
             const editBtn = document.createElement("button");
             editBtn.textContent = "Change";
+            editBtn.style.background = "#ffbb33";
+            editBtn.style.color = "white";
+            editBtn.style.padding = "5px 10px";
+            editBtn.style.border = "none";
+            editBtn.style.borderRadius = "3px";
+            editBtn.style.cursor = "pointer";
+            
             editBtn.addEventListener("click", () => {
-                const msgSpan = div.querySelector(`#msgText-${index}`);
+                const msgSpan = document.getElementById(`msgText-${index}`);
                 const input = document.createElement("input");
                 input.type = "text";
                 input.value = text;
+                input.style.width = "100%";
+                input.style.padding = "5px";
+                
                 msgSpan.replaceWith(input);
                 input.focus();
 
-                input.addEventListener("blur", () => {
+                const saveEdit = () => {
                     const newText = input.value.trim();
-                    if (newText && newText !== text) {
-                        socket.emit("edit message", { id: msg.id, chatNow, mainName, text: newText });
+                    if (newText && newText !== text && mainName && chatNow) {
+                        socket.emit("edit message", { 
+                            id: msg.id, 
+                            chatNow: chatNow, 
+                            mainName: mainName, 
+                            text: newText 
+                        });
                     }
-                    input.replaceWith(msgSpan);
+                    // Возвращаем обратно span
+                    const newSpan = document.createElement("span");
+                    newSpan.id = `msgText-${index}`;
+                    newSpan.textContent = newText || text;
+                    input.replaceWith(newSpan);
                     btnContainer.style.display = "none";
+                };
+
+                input.addEventListener("blur", saveEdit);
+                input.addEventListener("keypress", (e) => {
+                    if (e.key === "Enter") {
+                        saveEdit();
+                    }
                 });
+            });
+
+            // Кнопка жалобы
+            const complainBtn = document.createElement("button");
+            complainBtn.textContent = "Complain";
+            complainBtn.style.background = "#33b5e5";
+            complainBtn.style.color = "white";
+            complainBtn.style.padding = "5px 10px";
+            complainBtn.style.border = "none";
+            complainBtn.style.borderRadius = "3px";
+            complainBtn.style.cursor = "pointer";
+            
+            complainBtn.addEventListener("click", () => {
+                alert("Жалоба отправлена на сообщение: " + text);
+                btnContainer.style.display = "none";
             });
 
             btnContainer.appendChild(deleteBtn);
             btnContainer.appendChild(editBtn);
+            btnContainer.appendChild(complainBtn);
             div.appendChild(btnContainer);
 
             // Показ кнопок по правому клику мыши
@@ -259,8 +322,10 @@ socket.on("chat set", (data) => {
             div.addEventListener("touchstart", (e) => {
                 touchTimer = setTimeout(() => {
                     btnContainer.style.display = "block";
-                }, 500); // 500мс для долгого нажатия
+                    e.preventDefault();
+                }, 500);
             });
+            
             div.addEventListener("touchend", (e) => {
                 clearTimeout(touchTimer);
             });
@@ -289,13 +354,18 @@ function escapeHtml(str) {
     .replace(/'/g, "&#039;");
 }
 
-
-
-socket.on("chat error",(data)=>{
+socket.on("chat error", (data) => {
     alert(data);
-})
+});
 
-// Отправка сообщения
+// Добавим отладочную информацию
+console.log("Socket connected:", socket.connected);
+socket.on("connect", () => {
+    console.log("Connected to server");
+});
+socket.on("disconnect", () => {
+    console.log("Disconnected from server");
+});
 
 </script>
 

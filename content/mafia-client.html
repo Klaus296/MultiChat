@@ -149,11 +149,40 @@
     addLog('Гра стартувала!');
   });
 
+  let phaseTimer = null; // глобальная переменная для таймера
+
   socket.on('mafia_phase', (d) => {
-    phaseBanner.textContent = 'Фаза: ' + d.phase.toUpperCase() + (d.duration ? ' — ' + Math.round(d.duration/1000)+'s' : '');
+    // очищаем старый таймер
+    if (phaseTimer) {
+        clearInterval(phaseTimer);
+        phaseTimer = null;
+    }
+
+    let remaining = d.duration ? Math.round(d.duration / 1000) : null;
+
+    function updateBanner() {
+        phaseBanner.textContent =
+        'Фаза: ' + d.phase.toUpperCase() +
+        (remaining !== null ? ' — ' + remaining + 's' : '');
+    }
+
+    updateBanner();
+
+    if (remaining !== null) {
+        phaseTimer = setInterval(() => {
+        remaining--;
+        if (remaining <= 0) {
+            clearInterval(phaseTimer);
+            phaseTimer = null;
+        }
+        updateBanner();
+        }, 1000);
+    }
+
     addLog('Фаза: ' + d.phase);
     renderActions(d.phase);
   });
+
 
   socket.on('mafia_night_result', (d) => {
     if (d.killed) addLog('Ніч: убитий ' + d.killed);

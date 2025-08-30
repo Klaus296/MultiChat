@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Guess the Number</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 min-h-screen flex items-center justify-center">
+  <div class="bg-white/90 backdrop-blur-lg shadow-2xl rounded-2xl p-8 max-w-md w-full text-center">
+    <h1 class="text-3xl font-bold text-indigo-700 mb-4">🎲 Guess the Number</h1>
+    <p class="text-gray-700">Я загадал число от <span class="font-bold">1</span> до <span class="font-bold">20</span>.</p>
+    <p class="text-lg text-indigo-600 mt-2">У тебя есть <span class="font-semibold">10 секунд</span> на угадывание!</p>
+
+    <div class="mt-6">
+      <form id="enter_number" class="flex gap-2">
+        <input id="input" type="number" min="1" max="20" placeholder="Введите число..."
+          class="flex-1 px-4 py-2 rounded-xl border border-indigo-400 focus:ring-2 focus:ring-indigo-500 outline-none">
+        <button type="submit"
+          class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition">🎯</button>
+      </form>
+    </div>
+
+    <div class="mt-6">
+      <p id="message" class="text-lg font-semibold text-gray-800"></p>
+      <p class="mt-2">✅ Правильных ответов: <span id="score" class="font-bold text-green-600">0</span></p>
+      <p>⏳ Время: <span id="timer" class="font-bold text-red-600">10</span> сек.</p>
+    </div>
+  </div>
+
+  <script>
+    let number;
+    let score = 0;
+    let timeLeft = 10;
+    let timerInterval;
+    let count = 0
+    function newNumber() {
+      number = Math.floor(Math.random() * 20) + 1;
+      document.getElementById("input").value = "";
+      document.getElementById("message").textContent = "Попробуй угадать!";
+      timeLeft = 10;
+      document.getElementById("timer").textContent = timeLeft;
+
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        document.getElementById("timer").textContent = timeLeft;
+        if (timeLeft <= 0) {
+          clearInterval(timerInterval);
+          document.getElementById("message").textContent = "⛔ Время вышло! Число было: " + number;
+          count+=1
+          setTimeout(newNumber, 2000);
+        }
+      }, 1000);
+    }
+
+    document.getElementById("enter_number").addEventListener("submit", function (e) {
+      e.preventDefault();
+      let guess = parseInt(document.getElementById("input").value, 10);
+      if (!guess || guess < 1 || guess > 20) {
+        document.getElementById("message").textContent = "⚠️ Введите число от 1 до 20!";
+        return;
+      }
+      if (guess === number) {
+        score++;
+        document.getElementById("score").textContent = score;
+        document.getElementById("message").textContent = "🎉 Верно! Загадано новое число...";
+        count+=1
+        clearInterval(timerInterval);
+        setTimeout(newNumber, 1500);
+      } else if (guess < number) {
+        document.getElementById("message").textContent = "📉 Моё число больше!";
+      } else {
+        document.getElementById("message").textContent = "📈 Моё число меньше!";
+      }
+    });
+    if(count<=10){
+        newNumber();
+    }
+    
+  </script>
+</body>
+</html>

@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Камень‑Ножницы‑Бумага — офлайн</title>
+  <style>
+    :root {
+      --bg: #0f1220;
+      --panel: #171a2b;
+      --panel-2: #1e2236;
+      --text: #e7ecf3;
+      --muted: #9aa3b2;
+      --accent: #6aa9ff;
+      --win: #2ecc71;
+      --lose: #ff6b6b;
+      --draw: #f1c40f;
+      --ring: rgba(106, 169, 255, .4);
+    }
+    * { box-sizing: border-box }
+    html, body { height: 100% }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      color: var(--text);
+      background: radial-gradient(1200px 800px at 70% -20%, #1a2145 0%, var(--bg) 50%) no-repeat;
+    }
+    .wrap {
+      max-width: 980px; margin: 0 auto; padding: 24px; 
+      display: grid; gap: 16px;
+    }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    h1 { font-size: 24px; margin: 0; letter-spacing: .3px }
+    .muted { color: var(--muted) }
+
+    .card { background: linear-gradient(180deg, var(--panel), var(--panel-2)); border: 1px solid #262c46; border-radius: 16px; padding: 16px; box-shadow: 0 6px 18px rgba(0,0,0,.35) }
+    .grid { display: grid; gap: 12px }
+
+    .arena { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px }
+    .side { display:flex; flex-direction: column; gap:12px }
+    .vs { text-align:center; font-weight:700; letter-spacing:.6px }
+
+    .choices { display:flex; gap:12px; flex-wrap: wrap }
+    .btn {
+      background: #202742; border: 1px solid #2a335a; color: var(--text);
+      border-radius: 14px; padding: 12px 14px; gap: 10px; display:flex; align-items:center; cursor:pointer;
+      transition: transform .08s ease, box-shadow .2s ease, border-color .2s ease; position: relative; outline: none;
+    }
+    .btn[disabled] { opacity:.6; cursor:not-allowed }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(0,0,0,.25) }
+    .btn:focus-visible { box-shadow: 0 0 0 4px var(--ring) }
+    .btn .emo { font-size: 22px; }
+
+    .slot {
+      min-height: 92px; display:grid; place-items:center; border:1px dashed #31406a; border-radius:14px; background: #121528;
+      position: relative; overflow:hidden;
+    }
+    .slot .big { font-size: 48px; filter: drop-shadow(0 6px 10px rgba(0,0,0,.5)) }
+
+    .result { text-align:center; font-size: 18px; font-weight:600; padding: 10px; border-radius: 12px }
+    .result.win { background: rgba(46, 204, 113, .12); color: var(--win); border: 1px solid rgba(46, 204, 113, .35) }
+    .result.lose { background: rgba(255, 107, 107, .12); color: var(--lose); border: 1px solid rgba(255, 107, 107, .35) }
+    .result.draw { background: rgba(241, 196, 15, .12); color: var(--draw); border: 1px solid rgba(241, 196, 15, .35) }
+
+    .scores { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px }
+    .score { background:#111428; border:1px solid #23305a; border-radius: 12px; padding: 10px; text-align:center }
+    .score b { font-size: 22px; display:block; margin-top:6px }
+
+    .row { display:flex; gap: 10px; align-items:center; flex-wrap: wrap }
+    .spacer { flex: 1 }
+    .badge { font-size: 12px; padding: 6px 10px; border-radius: 999px; background:#0e1430; border:1px solid #25315e }
+
+    .history { max-height: 220px; overflow: auto; border-radius: 12px; border: 1px solid #2a335a; }
+    .history table { width: 100%; border-collapse: collapse; }
+    .history th, .history td { padding: 10px 12px; border-bottom: 1px solid #222a49; font-size: 14px }
+    .history tr:last-child td { border-bottom: none }
+    .tag { padding: 2px 8px; border-radius: 999px; font-size: 12px; display: inline-block }
+    .tag.win { background: rgba(46,204,113,.15); color: var(--win); border:1px solid rgba(46,204,113,.35) }
+    .tag.lose { background: rgba(255,107,107,.15); color: var(--lose); border:1px solid rgba(255,107,107,.35) }
+    .tag.draw { background: rgba(241,196,15,.15); color: var(--draw); border:1px solid rgba(241,196,15,.35) }
+
+    .controls { display:flex; gap:10px; flex-wrap: wrap }
+    .pill { border-radius: 999px; background:#10142a; border:1px solid #2a335a; padding:8px 12px; }
+    .reset { background:#191f3a; border:1px solid #334072; color: var(--text); border-radius: 12px; padding: 10px 12px; cursor:pointer }
+    .reset:focus-visible { box-shadow: 0 0 0 4px var(--ring) }
+
+    .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0 }
+
+    @keyframes pop {
+      0% { transform: scale(.9); opacity:.4 }
+      60% { transform: scale(1.06); opacity:1 }
+      100% { transform: scale(1) }
+    }
+    .pop { animation: pop .22s ease-out }
+
+    @media (max-width: 720px){
+      .arena { grid-template-columns: 1fr }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>🪨 ✂️ 📄 Камень‑Ножницы‑Бумага</h1>
+      <div class="badge" aria-live="polite">Оффлайн • Без рекламы</div>
+    </header>
+
+    <section class="card grid" aria-label="Поле боя">
+      <div class="arena">
+        <div class="side">
+          <div class="muted">Вы</div>
+          <div id="youSlot" class="slot" aria-live="polite" aria-atomic="true"><span class="big">🙂</span></div>
+        </div>
+        <div class="side">
+          <div class="muted">Бот</div>
+          <div id="botSlot" class="slot" aria-live="polite" aria-atomic="true"><span class="big">🤖</span></div>
+        </div>
+      </div>
+      <div id="result" class="result draw" role="status">Сделайте ход 👇</div>
+      <div class="choices" role="group" aria-label="Ваш ход">
+        <button class="btn" data-choice="rock">
+          <span class="emo" aria-hidden="true">🪨</span>
+          <span>Камень</span>
+        </button>
+        <button class="btn" data-choice="scissors">
+          <span class="emo" aria-hidden="true">✂️</span>
+          <span>Ножницы</span>
+        </button>
+        <button class="btn" data-choice="paper">
+          <span class="emo" aria-hidden="true">📄</span>
+          <span>Бумага</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="card grid" aria-label="Счёт и история">
+      <div class="scores">
+        <div class="score" aria-live="polite">Выигрыши <b id="scoreWin">0</b></div>
+        <div class="score" aria-live="polite">Поражения <b id="scoreLose">0</b></div>
+        <div class="score" aria-live="polite">Ничьи <b id="scoreDraw">0</b></div>
+      </div>
+      <div class="row">
+        <div class="controls">
+          <label class="pill">Серия до
+            <select id="target" aria-label="Играть до" style="background:transparent;border:none;color:var(--text);outline:none">
+              <option value="0">∞</option>
+              <option value="3">3</option>
+              <option value="5" selected>5</option>
+              <option value="10">10</option>
+            </select>
+            побед
+          </label>
+          <label class="pill">
+            <input id="smartBot" type="checkbox" />
+            «Умный» бот (смотрит на ваш прошлый ход)
+          </label>
+        </div>
+        <div class="spacer"></div>
+        <button id="resetBtn" class="reset">Сбросить игру</button>
+      </div>
+      <div class="history" aria-label="История раундов">
+        <table>
+          <thead>
+            <tr><th>#</th><th>Вы</th><th>Бот</th><th>Итог</th></tr>
+          </thead>
+          <tbody id="logBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer class="muted">Подсказка: используйте клавиши <kbd>1</kbd>‑камень, <kbd>2</kbd>‑ножницы, <kbd>3</kbd>‑бумага.</footer>
+  </div>
+
+  <script>
+    (()=>{
+      const EMO = { rock:'🪨', paper:'📄', scissors:'✂️' };
+      const ORDER = ['rock','paper','scissors'];
+      const youSlot = document.getElementById('youSlot');
+      const botSlot = document.getElementById('botSlot');
+      const resultEl = document.getElementById('result');
+      const logBody = document.getElementById('logBody');
+      const scoreWin = document.getElementById('scoreWin');
+      const scoreLose = document.getElementById('scoreLose');
+      const scoreDraw = document.getElementById('scoreDraw');
+      const targetSel = document.getElementById('target');
+      const smartBot = document.getElementById('smartBot');
+      const resetBtn = document.getElementById('resetBtn');
+
+      const btns = [...document.querySelectorAll('.btn')];
+
+      let scores = { w:0, l:0, d:0 };
+      let round = 0;
+      let lastPlayer = null;
+
+      function pickBot(){
+        if(smartBot.checked && lastPlayer){
+          // Бот пытается победить ваш прошлый ход
+          // бьём: камень->бумага, бумага->ножницы, ножницы->камень
+          const counter = { rock:'paper', paper:'scissors', scissors:'rock' };
+          // немножко рандома, чтобы не казалось нечестным
+          return Math.random()<0.75 ? counter[lastPlayer] : ORDER[Math.floor(Math.random()*3)];
+        }
+        return ORDER[Math.floor(Math.random()*3)];
+      }
+
+      function decide(a,b){
+        if(a===b) return 'draw';
+        const win = (a==='rock'&&b==='scissors')||(a==='scissors'&&b==='paper')||(a==='paper'&&b==='rock');
+        return win ? 'win' : 'lose';
+      }
+
+      function setSlot(el, what){
+        el.innerHTML = `<span class="big pop" aria-label="${what}">${EMO[what]||'?'}</span>`;
+      }
+      function setResult(state){
+        resultEl.className = 'result ' + state;
+        resultEl.textContent = state==='win' ? 'Победа! 💪' : state==='lose' ? 'Поражение 🙈' : 'Ничья 🤝';
+      }
+      function updateScores(state){
+        if(state==='win') scores.w++; else if(state==='lose') scores.l++; else scores.d++;
+        scoreWin.textContent = scores.w; scoreLose.textContent = scores.l; scoreDraw.textContent = scores.d;
+      }
+      function appendLog(player, bot, state){
+        round++;
+        const tr = document.createElement('tr');
+        const tag = `<span class="tag ${state}">${state==='win'?'Победа':state==='lose'?'Поражение':'Ничья'}</span>`;
+        tr.innerHTML = `<td class="muted">${round}</td><td>${EMO[player]} ${label(player)}</td><td>${EMO[bot]} ${label(bot)}</td><td>${tag}</td>`;
+        logBody.prepend(tr);
+        // ограничим историю 50 строками
+        while(logBody.children.length>50) logBody.removeChild(logBody.lastChild);
+      }
+      function label(k){ return k==='rock'?'Камень':k==='paper'?'Бумага':'Ножницы' }
+
+      function setDisabled(dis){ btns.forEach(b=> b.disabled = dis); }
+
+      function maybeFinish(){
+        const target = parseInt(targetSel.value,10);
+        if(!target) return false; // бесконечная серия
+        if(scores.w>=target || scores.l>=target){
+          setDisabled(true);
+          const msg = scores.w>scores.l ? `Серия до ${target}: вы победили! 🏆` : `Серия до ${target}: бот победил. 🤖`;
+          resultEl.className = 'result ' + (scores.w>scores.l?'win':'lose');
+          resultEl.textContent = msg;
+          return true;
+        }
+        return false;
+      }
+
+      function play(player){
+        const bot = pickBot();
+        lastPlayer = player;
+        setSlot(youSlot, player);
+        setSlot(botSlot, bot);
+        const state = decide(player, bot);
+        setResult(state);
+        updateScores(state);
+        appendLog(player, bot, state);
+        maybeFinish();
+      }
+
+      btns.forEach(btn=>{
+        btn.addEventListener('click', ()=> play(btn.dataset.choice));
+      });
+
+      window.addEventListener('keydown', (e)=>{
+        if(e.target && ['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)) return;
+        if(e.key==='1') play('rock');
+        if(e.key==='2') play('scissors');
+        if(e.key==='3') play('paper');
+      });
+
+      resetBtn.addEventListener('click', ()=>{
+        scores = { w:0, l:0, d:0 };
+        round = 0; lastPlayer = null;
+        scoreWin.textContent = 0; scoreLose.textContent = 0; scoreDraw.textContent = 0;
+        logBody.innerHTML = '';
+        youSlot.innerHTML = '<span class="big">🙂</span>';
+        botSlot.innerHTML = '<span class="big">🤖</span>';
+        resultEl.className = 'result draw';
+        resultEl.textContent = 'Сделайте ход 👇';
+        setDisabled(false);
+      });
+    })();
+  </script>
+</body>
+</html>

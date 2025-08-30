@@ -1,7 +1,7 @@
 const { Sequelize, DataTypes } = require("sequelize");
 
 // Параметри підключення
-const sequelize = new Sequelize("multichat-users", "root", "root", {
+const sequelize = new Sequelize("multichat-users", "root", "R9m!kZ2p#X7vQ4t", {
   host: "localhost",
   dialect: "mysql",
   port: 3306
@@ -9,11 +9,6 @@ const sequelize = new Sequelize("multichat-users", "root", "root", {
 
 // Модель таблиці user_rooms
 const UserRoom = sequelize.define("user_rooms", {
-  id: {
-    type: DataTypes.INTEGER,
-    autoIncrement: true,
-    primaryKey: true
-  },
   user_name: {
     type: DataTypes.STRING,
     allowNull: false
@@ -23,18 +18,20 @@ const UserRoom = sequelize.define("user_rooms", {
     allowNull: false
   },
   description: {
-    type: DataTypes.STRING,
+    type: DataTypes.TEXT,
     allowNull: false
   },
   language: {
     type: DataTypes.STRING,
-    allowNull: false
+    allowNull: false,
+    defaultValue: "en"   // <-- дефолтна мова
   },
   categorie: {
     type: DataTypes.STRING,
-    allowNull: false
-  }
-}, {
+    allowNull: false,
+    defaultValue: "sport" // <-- дефолтна категорія
+  },
+},{
   tableName: "user_rooms",
   timestamps: false
 });

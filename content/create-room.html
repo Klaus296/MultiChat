@@ -186,8 +186,8 @@
     // Уведомления
     socket.on("createRoomSuccess", () => {
       const roomName = document.getElementById("roomName").value.trim();
-      alert("✅ Кімната створена!");
       window.location.href = "/chat"
+      alert("✅ Кімната створена!");
       socket.emit("getRooms",{room:roomName});
     });
 

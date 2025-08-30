@@ -10,11 +10,19 @@
   const socket = io();
   const userFriends = [];
   const mainRooms = [];
+  
   document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("change-language").addEventListener("click",()=>{
+    const language = document.getElementById("language").value.trim();
+    console.log(language);
+    socket.emit("change language",(language))
+  });
    // запрос имени
   socket.emit("get user name")
   socket.emit("show friends");  // запрос списка друзей
   socket.emit("show rooms");
+  socket.emit("show saved rooms");
+
   socket.on("set name", (name) => {
     document.getElementById("user-name").textContent = name;
   });
@@ -25,31 +33,6 @@
       return;
     }
   })
-
-  socket.on("friends", (userFriends) => {
-    const friendsContainer = document.querySelector("#friends-list");
-    friendsContainer.innerHTML = "";
-    socket.on("createRoomSuccess", (newRoom) => {
-      console.log("New Room");
-    });
-    if (!userFriends || userFriends.length === 0) {
-      friendsContainer.innerHTML = `<p class="text-gray-500">No friends found</p>`;
-      return;
-    }
-    userFriends.forEach(friendName => {
-      const friendCard = document.createElement("div");
-      friendCard.className =
-        "flex items-center gap-3 p-4 bg-gray-100 rounded-lg shadow-sm hover:bg-gray-200 transition";
-      friendCard.innerHTML = `
-        <div class="w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold">
-          ${friendName[0].toUpperCase()}
-        </div>
-        <span class="font-medium">${friendName}</span>
-      `;
-      friendCard.onclick = () => toChat(friendName);
-      friendsContainer.appendChild(friendCard);
-    });
-  });
 
   // ⬇️ теперь форма точно существует
   socket.on("user del",()=>{
@@ -65,33 +48,66 @@
   }
 });
 
-socket.on("rooms", (rooms) => {
-  const roomsContainer = document.querySelector("#rooms-list");
-  roomsContainer.innerHTML = "";
+
+
+// socket.on("rooms", (rooms) => {
+//   const roomsContainer = document.querySelector("#rooms-list");
+//   roomsContainer.innerHTML = "";
   
-  if (!rooms || rooms.length === 0) {
-    roomsContainer.innerHTML = `<p class="text-gray-500">No rooms yet</p>`;
-    return;
-  }
+//   if (!rooms || rooms.length === 0) {
+//     roomsContainer.innerHTML = `<p class="text-gray-500">No rooms yet</p>`;
+//     return;
+//   }
   
-  rooms.forEach(room => {
-    const roomCard = document.createElement("div");
-    roomCard.className =
-      "p-4 bg-indigo-100 rounded-lg shadow hover:bg-indigo-200 transition";
-    roomCard.innerHTML = `
-      <h3 class="font-semibold">${room}</h3>
-      <button id="join-room" class="text-red-500 bg-gray-200 px-2 py-1 rounded hover:bg-gray-300" >Join</button>
-      <button id="del-room" class="text-red-500 bg-gray-200 px-2 py-1 rounded hover:bg-gray-300" >Delete</button>
-    `;
-    
-    roomsContainer.appendChild(roomCard);
-    document.getElementById("join-room").onclick = ()=>{console.log("Join")};
-    document.getElementById("del-room").onclick = ()=>{console.log(room);socket.emit("del room",(room))};
-  });
-});
+//   rooms.forEach(room => {
+
+//     const roomCard = document.createElement("div");
+//     roomCard.className =
+//       "p-4 bg-indigo-100 rounded-lg shadow hover:bg-indigo-200 transition";
+//     roomCard.innerHTML = `
+//       <h3 class="font-semibold">${room}</h3>
+//       <button id="join-room" class="text-red-500 bg-gray-200 px-2 py-1 rounded hover:bg-gray-300" >Join</button>
+//       <button id="del-room" class="text-red-500 bg-gray-200 px-2 py-1 rounded hover:bg-gray-300" >Delete</button>
+//     `;
+//     socket.on("room deleted", (room)=>{
+//       alert(`${room} delete! Restart the page`)
+//     });
+//     roomsContainer.appendChild(roomCard);
+//     document.getElementById("join-room").onclick = ()=>{window.location.href = `/main?room=${encodeURIComponent(room.room_name)}`;};
+//     document.getElementById("del-room").onclick = ()=>{socket.emit("del room",room)};
+//   });
+// });
+// socket.on("saved rooms", (rooms) => {
+//   const roomsContainer = document.querySelector("#main-rooms-list");
+//   roomsContainer.innerHTML = "";
+  
+//   if (!rooms || rooms.length === 0) {
+//     roomsContainer.innerHTML = `<p class="text-gray-500">No rooms yet</p>`;
+//     return;
+//   }
+  
+//   rooms.forEach(room => {
+
+//     const roomCard = document.createElement("div");
+//     roomCard.className =
+//       "p-4 bg-indigo-100 rounded-lg shadow hover:bg-indigo-200 transition";
+//     roomCard.innerHTML = `
+//       <h3 class="font-semibold">${room}</h3>
+//       <button id="join-room" class="text-red-500 bg-gray-200 px-2 py-1 rounded hover:bg-gray-300" >Join</button>
+//       <button id="del-room" class="text-red-500 bg-gray-200 px-2 py-1 rounded hover:bg-gray-300" >Delete</button>
+//     `;
+//     socket.on("room deleted", (room)=>{
+//       alert(`${room} delete! Restart the page`)
+//     });
+//     roomsContainer.appendChild(roomCard);
+//     document.getElementById("join-room").onclick = ()=>{window.location.href = `/main?room=${encodeURIComponent(room.room_name)}`;};
+//     document.getElementById("del-room").onclick = ()=>{socket.emit("del room",room)};
+//   });
+// });
 socket.on("room delete error",(err)=>{
   alert(err);
 })
+
 function toRoomChat(roomName){
   window.location.href = `/room-chat?room=${encodeURIComponent(roomName)}`;
 }
@@ -142,7 +158,7 @@ function toRoomChat(roomName){
     <!-- Tabs Navigation -->
     <div class="flex justify-center sm:justify-start gap-4 mb-6">
       <a href="#settings" class="tab-link px-4 py-2 rounded-lg font-medium text-gray-900">Settings</a>
-      <a href="#friends" class="tab-link px-4 py-2 rounded-lg font-medium text-gray-900">Friends</a>
+      <a href="#main-rooms" class="tab-link px-4 py-2 rounded-lg font-medium text-gray-900">Main rooms</a>
       <a href="#rooms" class="tab-link px-4 py-2 rounded-lg font-medium text-gray-900">Rooms</a>
     </div>
 
@@ -152,20 +168,119 @@ function toRoomChat(roomName){
       <h2 class="text-xl sm:text-2xl font-semibold mb-4">Settings</h2>
       <div class="space-y-4">
         <div>
-          <h3 class="text-lg font-medium">Theme</h3>
-          <p class="text-gray-600 mt-2">Theme switching is not available without JavaScript.</p>
-        </div>
-        <div>
           <h3 class="text-lg font-medium">Language</h3>
-          <p></p>
-        </div>
-        <div>
-          <h3 class="text-lg font-medium">Account</h3>
-          <p></p>
-        </div>
-        <div>
-          <h3 class="text-lg font-medium">Security</h3>
-          <p></p>
+          <select id="language" class="w-full p-2 border rounded">
+            <option value="af">Afrikaans</option>
+            <option value="sq">Albanian</option>
+            <option value="am">Amharic</option>
+            <option value="ar">Arabic</option>
+            <option value="hy">Armenian</option>
+            <option value="az">Azerbaijani</option>
+            <option value="eu">Basque</option>
+            <option value="be">Belarusian</option>
+            <option value="bn">Bengali</option>
+            <option value="bs">Bosnian</option>
+            <option value="bg">Bulgarian</option>
+            <option value="my">Burmese</option>
+            <option value="ca">Catalan</option>
+            <option value="ceb">Cebuano</option>
+            <option value="zh">Chinese</option>
+            <option value="co">Corsican</option>
+            <option value="hr">Croatian</option>
+            <option value="cs">Czech</option>
+            <option value="da">Danish</option>
+            <option value="nl">Dutch</option>
+            <option value="en">English</option>
+            <option value="eo">Esperanto</option>
+            <option value="et">Estonian</option>
+            <option value="fi">Finnish</option>
+            <option value="fr">French</option>
+            <option value="fy">Frisian</option>
+            <option value="gl">Galician</option>
+            <option value="ka">Georgian</option>
+            <option value="de">German</option>
+            <option value="el">Greek</option>
+            <option value="gu">Gujarati</option>
+            <option value="ht">Haitian Creole</option>
+            <option value="ha">Hausa</option>
+            <option value="haw">Hawaiian</option>
+            <option value="he">Hebrew</option>
+            <option value="hi">Hindi</option>
+            <option value="hmn">Hmong</option>
+            <option value="hu">Hungarian</option>
+            <option value="is">Icelandic</option>
+            <option value="ig">Igbo</option>
+            <option value="id">Indonesian</option>
+            <option value="ga">Irish</option>
+            <option value="it">Italian</option>
+            <option value="ja">Japanese</option>
+            <option value="jw">Javanese</option>
+            <option value="kn">Kannada</option>
+            <option value="kk">Kazakh</option>
+            <option value="km">Khmer</option>
+            <option value="rw">Kinyarwanda</option>
+            <option value="ko">Korean</option>
+            <option value="ku">Kurdish</option>
+            <option value="ky">Kyrgyz</option>
+            <option value="lo">Lao</option>
+            <option value="la">Latin</option>
+            <option value="lv">Latvian</option>
+            <option value="lt">Lithuanian</option>
+            <option value="lb">Luxembourgish</option>
+            <option value="mk">Macedonian</option>
+            <option value="mg">Malagasy</option>
+            <option value="ms">Malay</option>
+            <option value="ml">Malayalam</option>
+            <option value="mt">Maltese</option>
+            <option value="mi">Maori</option>
+            <option value="mr">Marathi</option>
+            <option value="mn">Mongolian</option>
+            <option value="ne">Nepali</option>
+            <option value="no">Norwegian</option>
+            <option value="ny">Nyanja</option>
+            <option value="or">Odia</option>
+            <option value="ps">Pashto</option>
+            <option value="fa">Persian</option>
+            <option value="pl">Polish</option>
+            <option value="pt">Portuguese</option>
+            <option value="pa">Punjabi</option>
+            <option value="ro">Romanian</option>
+            <option value="ru">Russian</option>
+            <option value="sm">Samoan</option>
+            <option value="gd">Scots Gaelic</option>
+            <option value="sr">Serbian</option>
+            <option value="st">Sesotho</option>
+            <option value="sn">Shona</option>
+            <option value="sd">Sindhi</option>
+            <option value="si">Sinhala</option>
+            <option value="sk">Slovak</option>
+            <option value="sl">Slovenian</option>
+            <option value="so">Somali</option>
+            <option value="es">Spanish</option>
+            <option value="su">Sundanese</option>
+            <option value="sw">Swahili</option>
+            <option value="sv">Swedish</option>
+            <option value="tl">Tagalog</option>
+            <option value="tg">Tajik</option>
+            <option value="ta">Tamil</option>
+            <option value="tt">Tatar</option>
+            <option value="te">Telugu</option>
+            <option value="th">Thai</option>
+            <option value="tr">Turkish</option>
+            <option value="tk">Turkmen</option>
+            <option value="uk">Ukrainian</option>
+            <option value="ur">Urdu</option>
+            <option value="ug">Uyghur</option>
+            <option value="uz">Uzbek</option>
+            <option value="vi">Vietnamese</option>
+            <option value="cy">Welsh</option>
+            <option value="xh">Xhosa</option>
+            <option value="yi">Yiddish</option>
+            <option value="yo">Yoruba</option>
+            <option value="zu">Zulu</option>
+          </select>
+          <button id="change-language" type="submit" class="inline-block px-5 py-2 rounded-lg bg-indigo-500 text-white font-semibold shadow hover:bg-indigo-600 transition mb-4 sm:mb-0 text-center">Save</button>
+          
         </div>
         <div>
           <h3 onclick="socket.emit('del account')" class="text-lg font-medium">Exit</h3>
@@ -173,24 +288,18 @@ function toRoomChat(roomName){
         </div>
       </div>
     </div>
-    <!-- Friends Section -->
-    <!-- Friends Section -->
-    <!-- Friends Section -->
-    <div id="friends" class="tab-content bg-white rounded-2xl shadow-xl p-6 mb-6">
-      <h2 class="text-xl sm:text-2xl font-semibold mb-4">Friends</h2>
-      <div id="friends-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div id="main-rooms" class="tab-content bg-white rounded-2xl shadow-xl p-6 mb-6">
+      <h2 class="text-xl sm:text-2xl font-semibold mb-4">Main rooms</h2>
+      <div id="main-rooms-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <!-- Друзья будут добавляться сюда -->
       </div>
     </div>
     <div id="rooms" class="tab-content bg-white rounded-2xl shadow-xl p-6 mb-6">
-      <h2 class="text-xl sm:text-2xl font-semibold mb-4">Rooms</h2>
+      <h2 class="text-xl sm:text-2xl font-semibold mb-4">Saved rooms</h2>
       <div id="rooms-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <!-- Друзья будут добавляться сюда -->
+        
       </div>
-    </div>
-
-
-    
+    </div>    
   </div>
 </body>
 </html>
