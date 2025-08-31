@@ -12,10 +12,10 @@ const crypto = require("crypto");
 const { Server } = require("socket.io");
 const { sequelize, User } = require("./db");
 const { UserRoom } = require("./room-data");
-const {RoomUsers} = require("./room-users");
 const { where } = require("sequelize");
 const {UserMessage} = require("./user-messages");
 const { MafiaUser } = require("./mafia-users");
+const { DataRoom } = require("./room-users"); 
 const { Op } = require("sequelize");
 const filePath = path.join(__dirname, "users.json");
 if (!fs.existsSync(filePath)) fs.writeFileSync(filePath, "[]", "utf8");
@@ -532,40 +532,64 @@ io.on("connection", (socket) => {
       socket.emit("friend error", "Ошибка сервера");
     }
   });
-  socket.on("add to main room",(data)=>{
-    const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
-    const currentUser = usersData[usersData.length - 1];
-
-    if (!currentUser.savedRooms) currentUser.savedRooms = [];
-    if (!currentUser.savedRooms.includes(data)) {
-      currentUser.savedRooms.push(data);
-      fs.writeFileSync(filePath, JSON.stringify(usersData, null, 2));
-      socket.emit("main room added", data);
-    } else {
-      socket.emit("main room error", "Кімната вже додана");
-    }
-  })
-  socket.on("show rooms",()=>{
+  socket.on("add to main room", async ({user, room_name, description, language}) => {
     try {
       const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
-      const currentUser = usersData[usersData.length - 1]; // последний вошедший
+      const currentUser = usersData[usersData.length - 1];
 
-      const rooms = currentUser.mainRooms || [];
-      console.log("📋 Список комнат:", rooms);
-    
-      socket.emit("rooms",(rooms));
+      // Используйте правильное имя модели (Room или UserRoom)
+      const newUser = await DataRoom.create({
+        user: user,
+        username: currentUser.username, // main name
+        room: room_name, // Обратите внимание: в модели Room поле называется 'room', а не 'room_name'
+        description: description,
+        language: language,
+      });
+
+      console.log("✅ Новая запись в Room:", newUser.toJSON());
+      socket.emit("main room added", room_name);
+    } catch (err) {
+      console.error("❌ Ошибка при добавлении комнаты:", err);
+      socket.emit("main room error", "Помилка при додаванні кімнати");
+    }
+  });
+
+
+  socket.on("show rooms", async () => {
+    try {
+      const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
+      const currentUser = usersData[usersData.length - 1];
+
+      // Ждём результат из базы
+      const rooms = await UserRoom.findAll({
+        where: { user_name: currentUser.username },
+        attributes: ["room_name", "description"],
+      });
+
+      // rooms — это массив объектов
+      console.log("📋 Список моих комнат:", rooms.map(r => r.room_name));
+
+      // Отправляем клиенту
+      socket.emit("rooms", rooms);
     } catch (err) {
       console.error("❌ Ошибка чтения комнат:", err);
       socket.emit("rooms", []);
     }
-  })
+  });
+
   socket.on("show saved rooms",()=>{
     console.log("show saved rooms");
     try {
       const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
       const currentUser = usersData[usersData.length - 1]; // последний вошедший
 
-      const rooms = currentUser.savedRooms || [];
+      DataRoom.findAll({
+        where: { username: currentUser.username },
+        attributes: ["room", "description","username","language","user"],
+      }).then(rooms => {
+        console.log("📋 Список комнат:", rooms.map(r => r.room))
+        socket.emit("saved rooms",(rooms))
+      });
       console.log("📋 Список комнат:", rooms);
     
       socket.emit("saved rooms",(rooms));
@@ -639,7 +663,7 @@ io.on("connection", (socket) => {
     console.log("➡ Отримання списку кімнат");
     try {
       const rooms = await UserRoom.findAll({
-        attributes: ["room_name", "description"], 
+        attributes: ["room_name", "description","user_name","language","categorie"], 
         raw: true
       });
       rooms.push(room)
@@ -896,7 +920,7 @@ io.on("connection", (socket) => {
               { description: { [Op.like]: `%${search}%` } }
             ]
           },
-          attributes: ["room_name", "description"],
+          attributes: ["room_name", "description","user_name","language","categorie"],
           raw: true
         });
         socket.emit("search result", results, list);
@@ -925,6 +949,4 @@ io.on("connection", (socket) => {
 
 server.listen(5050, () => {
   console.log("🚀 Сервер працює на http://localhost:5050");
-  const result = getPrivateRoomId("Liza","Stas");
-  console.log(`Result: ${result}`);
 });

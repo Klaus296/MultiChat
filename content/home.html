@@ -124,8 +124,8 @@
             };
       // навешиваем обработчик на кнопку Save
       div.querySelector(".save-room").onclick = () => {
-        console.log("click")
-        socket.emit("add to main room", { data: room.room_name });
+        console.log(room.user_name, room.room_name, room.description, room.language, room.categorie);
+        socket.emit("add to main room", { user: room.user_name, room_name: room.room_name, description: room.description, language: room.language });
       };
 
       container.appendChild(div);

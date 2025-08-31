@@ -180,7 +180,7 @@
             <button id="saveRoom">Save</button>
           `;
           container.appendChild(div);
-          document.getElementById("saveRoom").onclick = ()=>{socket.emit("saveRoom",(room.room_name))}
+          document.getElementById("saveRoom").onclick = ()=>{socket.emit("add to main room", { user: room.user_name, room_name: room.room_name, description: room.description, language: room.language });}
         });
       } else {
         results.forEach(user => {
