@@ -13,6 +13,7 @@ const { Server } = require("socket.io");
 const { sequelize, User } = require("./db");
 const { UserRoom } = require("./room-data");
 const { where } = require("sequelize");
+const stripe = require("stripe")("sk_test_51S2aUfFipUOofyTfRh6kQT99Tk8S8JitkFRtIh3U7eF1gk4S84LDjafyM7w7beVV6RqidqZ357tHMbjkBHd56ElL00ETntbCq0");
 const {UserMessage} = require("./user-messages");
 const { MafiaUser } = require("./mafia-users");
 const { DataRoom } = require("./room-users"); 
@@ -53,6 +54,44 @@ app.get("/users-chat",(req,res)=>{res.sendFile(path.join(__dirname,"content","us
 app.get("/messages",(req,res)=>{res.sendFile(path.join(__dirname,"content","messages.html"))});
 app.get("/us_profile", (req, res) => res.sendFile(path.join(__dirname, "content", "user-profile.html")));
 app.get("/search",(req,res)=>res.sendFile(path.join(__dirname,"content","search.html")));
+app.get("/pay", async (req, res) => {
+  try {
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      mode: "payment",
+      line_items: [
+        {
+          price_data: {
+            currency: "usd",       // 💰 валюта
+            product_data: {
+              name: "MultiChat Plus Subscription",
+              description: "Доступ к расширенным функциям MultiChat",
+            },
+            unit_amount: 500, // цена в центах = $5.00
+          },
+          quantity: 1,
+        },
+      ],
+      success_url: "http://localhost:3000/success", // ✅ если оплата успешна
+      cancel_url: "http://localhost:3000/cancel",   // ❌ если отмена
+    });
+
+    res.redirect(session.url);
+  } catch (err) {
+    console.error("Ошибка при создании сессии оплаты:", err);
+    res.status(500).send("Ошибка при оплате");
+  }
+});
+
+// Страницы для результата
+app.get("/success", (req, res) => {
+  res.send("<h1>✅ Оплата прошла успешно! MultiChat Plus активирован 🎉</h1>");
+});
+
+app.get("/cancel", (req, res) => {
+  res.send("<h1>❌ Оплата отменена. Попробуйте снова.</h1>");
+});
+
 app.get("/room-chat", (req, res) => {
   res.sendFile(path.join(__dirname, "content", "chat.html"));
 });
@@ -400,6 +439,7 @@ io.on("connection", (socket) => {
     const currentUser = usersData[usersData.length - 1];
     currentUser.language = language;
     fs.writeFileSync(filePath, JSON.stringify(usersData, null, 2));
+    User.update({language:language},{where:{name:currentUser.username}});
     console.log(`Language changed to ${language}`);
     socket.emit("language changed",language);
   });
@@ -454,10 +494,19 @@ io.on("connection", (socket) => {
       console.error("❌ Ошибка delete message:", err);
     }
   });
+  socket.on("change name",(name)=>{
+    const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
+    const currentUser = usersData[usersData.length - 1];
+    User.update({name:name},{where:{name:currentUser.username}});
+    UserMessage.update({sender:name},{where:{sender:currentUser.username}});
+    UserMessage.update({recipient:name},{where:{recipient:currentUser.username}});
+    DataRoom.update({username:name},{where:{username:currentUser.username}});
+    UserRoom.update({user_name:name},{where:{user_name:currentUser.username}});
+    currentUser.username = name;
+    fs.writeFileSync(filePath, JSON.stringify(usersData, null, 2));
+    socket.emit("name changed",name);
+  });
 
-
-  // Редактирование сообщения
-  // Редактирование сообщения
   socket.on("edit message", async ({ id, text, mainName, chatNow }) => {
     try {
       const roomId = getPrivateRoomId(mainName, chatNow);
@@ -545,7 +594,9 @@ io.on("connection", (socket) => {
         description: description,
         language: language,
       });
-
+      if (!currentUser.mainRooms) currentUser.mainRooms = [];
+      currentUser.mainRooms.push(room_name);
+      fs.writeFileSync(filePath, JSON.stringify(usersData, null, 2));
       console.log("✅ Новая запись в Room:", newUser.toJSON());
       socket.emit("main room added", room_name);
     } catch (err) {
@@ -577,7 +628,7 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("show saved rooms",()=>{
+  socket.on("show saved rooms", () => {
     console.log("show saved rooms");
     try {
       const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
@@ -585,19 +636,25 @@ io.on("connection", (socket) => {
 
       DataRoom.findAll({
         where: { username: currentUser.username },
-        attributes: ["room", "description","username","language","user"],
+        attributes: ["room", "description", "username", "language", "user"],
       }).then(rooms => {
-        console.log("📋 Список комнат:", rooms.map(r => r.room))
-        socket.emit("saved rooms",(rooms))
+        
+        const uniqueRooms = rooms.filter(
+          (room, index, self) =>
+            index === self.findIndex(r => r.room === room.room)
+        );
+        currentUser.savedRooms = uniqueRooms.map(r => r.room);
+        fs.writeFileSync(filePath, JSON.stringify(usersData, null, 2));
+        console.log(currentUser.savedRooms);
+        console.log("📋 Список уникальных комнат:", uniqueRooms.map(r => r.room));
+        socket.emit("saved rooms", uniqueRooms);
       });
-      console.log("📋 Список комнат:", rooms);
-    
-      socket.emit("saved rooms",(rooms));
     } catch (err) {
       console.error("❌ Ошибка чтения комнат:", err);
       socket.emit("saved rooms", []);
     }
-  })
+  });
+
   socket.on("del account",()=>{
     const username = users.length > 0 ? users[users.length - 1].username : null;
     const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
@@ -643,7 +700,7 @@ io.on("connection", (socket) => {
         email: email
       });
 
-      users.push({ username: name, pass: password, createdAt: new Date().toISOString(),language:language,userFriends:[],email:email,chatNow:"",roomNow:""});
+      users.push({ username: name, pass: password, createdAt: new Date().toISOString(),language:language,savedRooms:[],email:email,chatNow:"",roomNow:""});
       fs.writeFileSync(filePath, JSON.stringify(users, null, 2));
 
       console.log("✅ Користувач створений:", name);
@@ -755,20 +812,45 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("show friends", () => {
+  socket.on("show friends", async () => {
     try {
       const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
       const currentUser = usersData[usersData.length - 1]; // последний вошедший
-      const friends = currentUser.userFriends || [];
-      // const rooms = currentUser.savedRooms || [];
+      
+      const messages = await UserMessage.findAll({
+        where: {
+          [Op.or]: [
+            { sender: currentUser.username },
+            { recipient: currentUser.username }
+          ]
+        },
+        attributes: ["recipient", "sender"],
+        raw: true
+      });
+
+      // Собираем список друзей
+      const friendsSet = new Set();
+
+      messages.forEach(msg => {
+        if (msg.sender !== currentUser.username) {
+          friendsSet.add(msg.sender);
+        }
+        if (msg.recipient !== currentUser.username) {
+          friendsSet.add(msg.recipient);
+        }
+      });
+
+      const friends = Array.from(friendsSet);
+
       console.log("📋 Список друзей:", friends);
-    
-      socket.emit("friends",(friends));
+
+      socket.emit("chatsList", friends);
     } catch (err) {
       console.error("❌ Ошибка чтения друзей:", err);
       socket.emit("friends", []);
     }
   });
+
   socket.on("save profile", ({ name, bio }) => {
     if (!name) {
       socket.emit("profile error", "Ім'я не вказано");
