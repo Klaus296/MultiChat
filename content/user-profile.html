@@ -18,15 +18,7 @@
     console.log(language);
     socket.emit("change language",(language));
   });
-  const buyBtn = document.getElementById("buy-plus");
-    if (buyBtn) {
-      buyBtn.addEventListener("click", () => {
-        const confirmBuy = confirm("Вы уверены, что хотите купить MultiChat Plus?");
-        if (confirmBuy) {
-          window.location.href = "/pay"; 
-        }
-      });
-    }
+
    // запрос имени
   socket.emit("get user name")
   socket.emit("show friends");  // запрос списка друзей
@@ -63,6 +55,20 @@
 });
 
 
+socket.on("room edited", ({ room, newDescription }) => {
+  alert(`Комната "${room}" успешно обновлена!`);
+  window.location.reload();
+  // Можно сразу обновить DOM без перезагрузки
+  const card = [...document.querySelectorAll("#rooms-list div")]
+    .find(div => div.querySelector("h3")?.textContent === room);
+  if (card) {
+    card.querySelector("p").textContent = newDescription;
+  }
+});
+
+socket.on("room edit error", (err) => {
+  alert("Ошибка при редактировании: " + err);
+});
 
 socket.on("rooms", (rooms) => {
   const roomsContainer = document.querySelector("#rooms-list");
@@ -83,13 +89,29 @@ socket.on("rooms", (rooms) => {
       <p>${room.description}</p>
       <button id="join-room" class="text-red-500 bg-gray-200 px-2 py-1 rounded hover:bg-gray-300" >Join</button>
       <button id="del-room" class="text-red-500 bg-gray-200 px-2 py-1 rounded hover:bg-gray-300" >Delete</button>
+      <button id="edit-room" class="text-red-500 bg-gray-200 px-2 py-1 rounded hover:bg-gray-300">Edit</button>  
+
     `;
+    roomCard.querySelector("#del-room").onclick = ()=>{deleteRoom(room.room_name)};
+    roomCard.querySelector("#join-room").onclick = ()=>{toRoomChat(room.room_name)};
+    roomCard.querySelector("#edit-room").onclick = ()=>{roomCard.innerHTML = `<h3 class="font-semibold">${room.room_name}</h3>
+    <input type="text" id="new-desc" class="w-full p-2 border rounded mb-4" placeholder="New description" value="${room.description}">
+    <button id="save-edit" class="text-red-500 bg-gray-200 px-2 py-1 rounded hover:bg-gray-300">Save</button>`
+    roomCard.querySelector("#save-edit").onclick = ()=>{
+      const newDesc = document.getElementById("new-desc").value.trim();
+      if (newDesc.length > 200) {
+        alert("Description too long (max 200 characters)");
+        return;
+      }
+      socket.emit("edit room", { room: room.room_name, newDescription: newDesc });
+    }
+    };
     socket.on("room deleted", (room)=>{
       alert(`${room} delete! Restart the page`)
     });
     roomsContainer.appendChild(roomCard);
-    document.getElementById("join-room").onclick = ()=>{window.location.href = `/main?room=${encodeURIComponent(room.room_name)}`;};
-    document.getElementById("del-room").onclick = ()=>{socket.emit("del room",room)};
+    // document.getElementById("join-room").onclick = ()=>{window.location.href = `/main?room=${encodeURIComponent(room.room_name)}`;};
+    // document.getElementById("del-room").onclick = ()=>{console.log(room);socket.emit("del room",room.room_name)};
   });
 });
 socket.on("saved rooms", (rooms) => {
@@ -97,7 +119,7 @@ socket.on("saved rooms", (rooms) => {
   roomsContainer.innerHTML = "";
   
   if (!rooms || rooms.length === 0) {
-    roomsContainer.innerHTML = `<p class="text-gray-500">No rooms yet</p>`;
+    roomsContainer.innerHTML = `<p class="text-gray-500">No saved rooms yet</p>`;
     return;
   }
   
@@ -111,12 +133,14 @@ socket.on("saved rooms", (rooms) => {
       <button id="join-room" class="text-red-500 bg-gray-200 px-2 py-1 rounded hover:bg-gray-300" >Join</button>
       <button id="del-room" class="text-red-500 bg-gray-200 px-2 py-1 rounded hover:bg-gray-300" >Delete</button>
     `;
+    roomCard.querySelector("#del-room").onclick = ()=>{deleteRoom2(room.room)};
+    roomCard.querySelector("#join-room").onclick = ()=>{toRoomChat(room.room)};
     socket.on("room deleted", (room)=>{
       alert(`${room} delete! Restart the page`)
     });
     roomsContainer.appendChild(roomCard);
-    document.getElementById("join-room").onclick = ()=>{window.location.href = `/main?room=${encodeURIComponent(room.room_name)}`;};
-    document.getElementById("del-room").onclick = ()=>{socket.emit("del room",room)};
+    // document.getElementById("join-room").onclick = ()=>{window.location.href = `/main?room=${encodeURIComponent(room.room_name)}`;};
+    // document.getElementById("del-room").onclick = ()=>{console.log(room.room);socket.emit("del room",room)};
   });
 });
 socket.on("room delete error",(err)=>{
@@ -126,7 +150,15 @@ socket.on("room delete error",(err)=>{
 function toRoomChat(roomName){
   window.location.href = `/room-chat?room=${encodeURIComponent(roomName)}`;
 }
-
+function deleteRoom(roomName){
+  socket.emit("del-room",roomName);
+}
+function deleteRoom2(roomName){
+  socket.emit("del room",roomName);
+}
+function editRoom(roomName){
+  socket.emit("edit room",roomName);
+}
 
 </script>
 
@@ -167,6 +199,8 @@ function toRoomChat(roomName){
       <a href="/chat" class="inline-block px-5 py-2 rounded-lg bg-indigo-500 text-white font-semibold shadow hover:bg-indigo-600 transition mb-4 sm:mb-0 text-center">
         Home
       </a>
+      <a href="/support-service" class="inline-block px-5 py-2 rounded-lg bg-green-500 text-white font-semibold shadow hover:bg-indigo-600 transition mb-4 sm:mb-0 text-center">Support service</a>
+
       <h1 style="text-align: center;" id="user-name" class="text-2xl sm:text-3xl font-bold">User</h1>
     </div>
 
@@ -303,15 +337,7 @@ function toRoomChat(roomName){
             <input type="submit" value="Change name" onclick="socket.emit('change name',document.querySelector('input[type=text]').value);document.querySelector('input[type=text]').value='';return false;" class="inline-block px-5 py-2 rounded-lg bg-indigo-500 text-white font-semibold shadow hover:bg-indigo-600 transition mb-4 sm:mb-0 text-center">
           </form>
         </div>
-        <div>
-          <h3 class="text-lg font-medium mb-2">MultiChat Plus</h3>
-          <p class="text-gray-600 mb-4">Получите расширенные возможности, эксклюзивные комнаты и поддержку проекта 💎</p>
-          <button 
-            id="buy-plus" 
-            class="inline-block px-5 py-2 rounded-lg bg-green-500 text-white font-semibold shadow hover:bg-green-600 transition">
-            Купить MultiChat Plus
-          </button>
-        </div>
+        
         <div>
           <h3 onclick="socket.emit('del account')" class="text-lg font-medium">Exit</h3>
           <p></p>
@@ -319,13 +345,13 @@ function toRoomChat(roomName){
       </div>
     </div>
     <div id="main-rooms" class="tab-content bg-white rounded-2xl shadow-xl p-6 mb-6">
-      <h2 class="text-xl sm:text-2xl font-semibold mb-4">Main rooms</h2>
+      <h2 class="text-xl sm:text-2xl font-semibold mb-4">Saved rooms</h2>
       <div id="main-rooms-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <!-- Друзья будут добавляться сюда -->
       </div>
     </div>
     <div id="rooms" class="tab-content bg-white rounded-2xl shadow-xl p-6 mb-6">
-      <h2 class="text-xl sm:text-2xl font-semibold mb-4">Saved rooms</h2>
+      <h2 class="text-xl sm:text-2xl font-semibold mb-4">Main rooms</h2>
       <div id="rooms-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       </div>
     </div>    

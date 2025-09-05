@@ -149,7 +149,7 @@
     <script src="/socket.io/socket.io.js"></script>
     <script>
 const socket = io();
-
+alert("If the messages do not appear, refresh the page.");
 fetch('/api/users')
 .then(response => response.json())
 .then(data => {

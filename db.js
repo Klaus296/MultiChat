@@ -2,7 +2,7 @@ const { Sequelize, DataTypes } = require("sequelize");
 
 const sequelize = new Sequelize("multichat-users", "root", "R9m!kZ2p#X7vQ4t", {
   host: "localhost",
-  port: 3306,
+  port: 5049,
   dialect: "mysql",
   logging: false,
 });

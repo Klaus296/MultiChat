@@ -1,8 +1,5 @@
-// Добавить возможность редактировать профиль и комнаты
-// Сделать разноцветные ники
-// сделать клики на нижней панели
-// Сделать отображение моих и сохраненых комнат при помощи баз данных
-// При удаления пользователя, удалять и базу данных
+// Сделай службу поддержки
+// Сделай кортинки для комнат
 const express = require("express");
 const http = require("http");
 const path = require("path");
@@ -13,7 +10,6 @@ const { Server } = require("socket.io");
 const { sequelize, User } = require("./db");
 const { UserRoom } = require("./room-data");
 const { where } = require("sequelize");
-const stripe = require("stripe")("sk_test_51S2aUfFipUOofyTfRh6kQT99Tk8S8JitkFRtIh3U7eF1gk4S84LDjafyM7w7beVV6RqidqZ357tHMbjkBHd56ElL00ETntbCq0");
 const {UserMessage} = require("./user-messages");
 const { MafiaUser } = require("./mafia-users");
 const { DataRoom } = require("./room-users"); 
@@ -54,43 +50,12 @@ app.get("/users-chat",(req,res)=>{res.sendFile(path.join(__dirname,"content","us
 app.get("/messages",(req,res)=>{res.sendFile(path.join(__dirname,"content","messages.html"))});
 app.get("/us_profile", (req, res) => res.sendFile(path.join(__dirname, "content", "user-profile.html")));
 app.get("/search",(req,res)=>res.sendFile(path.join(__dirname,"content","search.html")));
-app.get("/pay", async (req, res) => {
-  try {
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      mode: "payment",
-      line_items: [
-        {
-          price_data: {
-            currency: "usd",       // 💰 валюта
-            product_data: {
-              name: "MultiChat Plus Subscription",
-              description: "Доступ к расширенным функциям MultiChat",
-            },
-            unit_amount: 500, // цена в центах = $5.00
-          },
-          quantity: 1,
-        },
-      ],
-      success_url: "http://localhost:3000/success", // ✅ если оплата успешна
-      cancel_url: "http://localhost:3000/cancel",   // ❌ если отмена
-    });
+const LIQPAY_PUBLIC_KEY = "sandbox_i55874930238";
+const LIQPAY_PRIVATE_KEY = "sandbox_vIVAwR6BVucTxSCb9aT98KPfxrjQuYbQTPZgE35Y";
 
-    res.redirect(session.url);
-  } catch (err) {
-    console.error("Ошибка при создании сессии оплаты:", err);
-    res.status(500).send("Ошибка при оплате");
-  }
-});
 
-// Страницы для результата
-app.get("/success", (req, res) => {
-  res.send("<h1>✅ Оплата прошла успешно! MultiChat Plus активирован 🎉</h1>");
-});
 
-app.get("/cancel", (req, res) => {
-  res.send("<h1>❌ Оплата отменена. Попробуйте снова.</h1>");
-});
+
 
 app.get("/room-chat", (req, res) => {
   res.sendFile(path.join(__dirname, "content", "chat.html"));
@@ -377,25 +342,83 @@ io.on("connection", (socket) => {
 
 
 
-  socket.on("del room",(room)=>{
-    console.log("del")
-    const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
-    const currentUser = usersData[usersData.length - 1];
+  socket.on("del room", async (room) => {
+    try {
+      console.log("Удаление сохранённой комнаты:", room);
+      const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
+      const currentUser = usersData[usersData.length - 1];
 
-    // room - это имя комнаты, удаляем из savedRooms по значению
-    if (currentUser && Array.isArray(currentUser.mainRooms)) {
-      const index = currentUser.mainRooms.indexOf(room);
-      if (index !== -1) {
-      currentUser.mainRooms.splice(index, 1);
-      fs.writeFileSync(filePath, JSON.stringify(usersData, null, 2));
-      socket.emit("room deleted", room);
-      } else {
-      socket.emit("room delete error", "Комната не найдена в savedRooms");
+      if (!currentUser) {
+        return socket.emit("room delete error", "Нет сохранённых комнат");
       }
-    } else {
-      socket.emit("room delete error", "Нет сохранённых комнат");
+
+      const deleted = await DataRoom.destroy({
+        where: { room: room, username: currentUser.username }
+      });
+
+      if (deleted) {
+        socket.emit("room deleted", room.room);
+      } else {
+        socket.emit("room delete error", "Комната не найдена в savedRooms");
+      }
+    } catch (err) {
+      console.error(err);
+      socket.emit("room delete error", "Ошибка при удалении комнаты");
     }
   });
+
+  socket.on("edit room", async ({ room, newDescription }) => {
+    try {
+      console.log("Редактирование сохранённой комнаты:", room);
+      
+      await DataRoom.update(
+        { description: newDescription },
+        { where: { room: room } }
+      );
+
+      await UserRoom.update(
+        { description: newDescription },
+        { where: { room_name: room } }
+      );
+
+      console.log("Комната отредактирована");
+      socket.emit("room edited", { room, newDescription });
+    } catch (err) {
+      console.error(err);
+      socket.emit("room edit error", err.message);
+    }
+  });
+
+  socket.on("del-room", async (room) => {
+    try {
+      console.log("del-room");
+      console.log("Удаление главной комнаты:", room);
+      const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
+      const currentUser = usersData[usersData.length - 1];
+
+      if (!currentUser) {
+        return socket.emit("room delete error", "Нет сохранённых комнат");
+      }
+
+      const deletedRoom = await DataRoom.destroy({
+        where: { room: room, username: currentUser.username }
+      });
+
+      const deletedUserRoom = await UserRoom.destroy({
+        where: { room_name: room, user_name: currentUser.username }
+      });
+
+      if (deletedRoom || deletedUserRoom) {
+        socket.emit("room deleted", room);
+      } else {
+        socket.emit("room delete error", "Комната не найдена");
+      }
+    } catch (err) {
+      console.error(err);
+      socket.emit("room delete error", "Ошибка при удалении комнаты");
+    }
+  });
+
   socket.on("add message", (msg) => {
     console.log(msg)
     
@@ -443,14 +466,6 @@ io.on("connection", (socket) => {
     console.log(`Language changed to ${language}`);
     socket.emit("language changed",language);
   });
-  socket.on("change-name-form",(name)=>{
-    const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
-    const currentUser = usersData[usersData.length - 1];
-    currentUser.username = name;
-    fs.writeFileSync(filePath, JSON.stringify(usersData, null, 2));
-    console.log(`Name changed to ${name}`);
-    socket.emit("name changed",name);
-  }); 
   socket.on("delete message", async (data) => {
     const { id, mainName, chatNow } = data;
     console.log(`Delete`)
@@ -594,9 +609,11 @@ io.on("connection", (socket) => {
         description: description,
         language: language,
       });
-      if (!currentUser.mainRooms) currentUser.mainRooms = [];
-      currentUser.mainRooms.push(room_name);
-      fs.writeFileSync(filePath, JSON.stringify(usersData, null, 2));
+      const existingRoom = await DataRoom.findOne({ where: { room: room_name } });
+      if (existingRoom) {
+        socket.emit("main room error", "Кімната з такою назвою вже існує");
+        return;
+      }
       console.log("✅ Новая запись в Room:", newUser.toJSON());
       socket.emit("main room added", room_name);
     } catch (err) {

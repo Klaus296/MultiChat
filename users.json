@@ -1,16 +1,15 @@
 [
   {
-    "username": "Stason",
-    "pass": "1234",
-    "createdAt": "2025-08-30T17:43:20.762Z",
-    "language": "co",
+    "username": "Klaus",
+    "createdAt": "2025-09-04T16:30:56.527Z",
     "savedRooms": [
-      "The Room",
-      "The Room3",
-      "Main room"
+      "Main room2"
     ],
-    "email": "kravcenkostanislav516@gmail.com",
-    "chatNow": "Stas",
-    "roomNow": "The Room"
+    "mainRooms": [
+      "Main room2",
+      "Main room2"
+    ],
+    "userFriends": [],
+    "chatNow": "Elizaveta"
   }
 ]

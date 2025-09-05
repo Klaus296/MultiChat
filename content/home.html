@@ -110,7 +110,10 @@
       div.style.minWidth = "320px"; 
       div.innerHTML = `
         <h2 style="width:80%;" class="text-lg font-semibold text-gray-800">${room.room_name}</h2>
-        <p class="text-gray-600">${room.description || ""}</p>
+        <p class="text-gray-600">Description: ${room.description || ""}</p>
+        <p class="text-gray-600">Language: ${room.language || ""}</p>
+        <p class="text-gray-600">Author: ${room.user_name || ""}</p>
+
         <button class="join-room mt-2 px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600">
           Join Room
         </button>
@@ -133,7 +136,9 @@
 socket.on("main room error",(data)=>{
   alert(data);
 })
-
+socket.on("main room added", (room_name) => {
+  alert(`Room "${room_name}" added to your saved rooms!`);
+});
   
 </script>
 

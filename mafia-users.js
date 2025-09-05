@@ -5,7 +5,7 @@ const { Sequelize, DataTypes } = require("sequelize");
 const sequelize = new Sequelize("multichat-users", "root", "R9m!kZ2p#X7vQ4t", {
   host: "localhost",
   dialect: "mysql",
-  port: 3306
+  port: 5049
 });
 
 const MafiaUser = sequelize.define("MafiaUser", {
