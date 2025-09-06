@@ -142,8 +142,17 @@
       <div>
         <label class="block text-sm font-medium text-gray-700">Categorie</label>
         <select id="categorie" class="w-full p-2 border rounded">
-          <option value="sport">Sport</option>
-          <option value="sport">Entertainment</option>
+          <option value="Social">Social</option>
+          <option value="Educational">Educational</option>
+          <option value="Professional">Professional</option>
+          <option value="hobby">hobby</option>
+          <option value="Information">Information</option>
+          <option value="Entertainment">Entertainment</option>
+          <option value="self-development">self-development</option>
+          <option value="Games">Games</option>
+
+
+
 
         </select>
       </div>
@@ -184,7 +193,7 @@
       const roomDescription = document.getElementById("roomDescription").value.trim();
       const language = document.getElementById("language").value.trim();
       const categorie = document.getElementById("categorie").value.trim();
-      socket.emit("createRoom", { userName, roomName, roomDescription,language,categorie });
+      socket.emit("createRoom", { roomName, roomDescription,language,categorie });
     });
 
     // Уведомления

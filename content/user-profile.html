@@ -12,6 +12,13 @@
   const mainRooms = [];
   
   document.addEventListener("DOMContentLoaded", () => {
+  socket.emit("check admin");
+  socket.on("is admin",()=>{
+    document.getElementById("support").style.display="inline-block";
+    document.getElementById("support").onclick=null;
+    document.getElementById("support").href="/messages";
+    
+  })
   document.getElementById("change-language").addEventListener("click",()=>{
     console.log("Pay");
     const language = document.getElementById("language").value.trim();
@@ -19,7 +26,6 @@
     socket.emit("change language",(language));
   });
 
-   // запрос имени
   socket.emit("get user name")
   socket.emit("show friends");  // запрос списка друзей
   socket.emit("show rooms");
@@ -71,6 +77,7 @@ socket.on("room edit error", (err) => {
 });
 
 socket.on("rooms", (rooms) => {
+  console.log(" Полученные комнаты:", rooms);
   const roomsContainer = document.querySelector("#rooms-list");
   roomsContainer.innerHTML = "";
   
@@ -80,14 +87,18 @@ socket.on("rooms", (rooms) => {
   }
   
   rooms.forEach(room => {
-
+    const backgrounds = ["study.jpg", "social.jpg"]
+    const randomIndex = Math.floor(Math.random() * backgrounds.length);
     const roomCard = document.createElement("div");
     roomCard.className =
       "p-4 bg-indigo-100 rounded-lg shadow hover:bg-indigo-200 transition";
+    roomCard.style.backgroundImage = "url('/content/images/" + backgrounds[randomIndex] + "')";
+    roomCard.style.backgroundSize = "cover";
+    roomCard.style.backgroundPosition = "center";
     roomCard.innerHTML = `
-      <h3 class="font-semibold">${room.room_name}</h3>
-      <p>${room.description}</p>
-      <button id="join-room" class="text-red-500 bg-gray-200 px-2 py-1 rounded hover:bg-gray-300" >Join</button>
+      <h3 style="background-color:#2596be;" class="font-semibold">${room.room_name}</h3>
+      <p style="background-color:#2596be; opacity:0.9; color:gold;">Description: ${room.description}</p>
+      <button id="join-room" class="text-red-500 bg-gray-500 px-2 py-1 rounded hover:bg-gray-300" >Join</button>
       <button id="del-room" class="text-red-500 bg-gray-200 px-2 py-1 rounded hover:bg-gray-300" >Delete</button>
       <button id="edit-room" class="text-red-500 bg-gray-200 px-2 py-1 rounded hover:bg-gray-300">Edit</button>  
 
@@ -96,7 +107,7 @@ socket.on("rooms", (rooms) => {
     roomCard.querySelector("#join-room").onclick = ()=>{toRoomChat(room.room_name)};
     roomCard.querySelector("#edit-room").onclick = ()=>{roomCard.innerHTML = `<h3 class="font-semibold">${room.room_name}</h3>
     <input type="text" id="new-desc" class="w-full p-2 border rounded mb-4" placeholder="New description" value="${room.description}">
-    <button id="save-edit" class="text-red-500 bg-gray-200 px-2 py-1 rounded hover:bg-gray-300">Save</button>`
+    <button id="save-edit" class="text-red-500 bg-gray-500 px-2 py-1 rounded hover:bg-gray-300">Save</button>`
     roomCard.querySelector("#save-edit").onclick = ()=>{
       const newDesc = document.getElementById("new-desc").value.trim();
       if (newDesc.length > 200) {
@@ -115,6 +126,8 @@ socket.on("rooms", (rooms) => {
   });
 });
 socket.on("saved rooms", (rooms) => {
+  console.log("🔥 Полученные комнаты:", rooms);
+
   const roomsContainer = document.querySelector("#main-rooms-list");
   roomsContainer.innerHTML = "";
   
@@ -124,12 +137,19 @@ socket.on("saved rooms", (rooms) => {
   }
   
   rooms.forEach(room => {
-
+    const backgrounds = ["study.jpg", "social.jpg"]
+    const randomIndex = Math.floor(Math.random() * backgrounds.length);
     const roomCard = document.createElement("div");
     roomCard.className =
       "p-4 bg-indigo-100 rounded-lg shadow hover:bg-indigo-200 transition";
+    roomCard.style.backgroundImage = "url('/content/images/" + backgrounds[randomIndex] + "')";
+    roomCard.style.backgroundSize = "cover";
+    roomCard.style.backgroundPosition = "center";
     roomCard.innerHTML = `
-      <h3 class="font-semibold">${room.room}</h3>
+      <h3 style="background-color:#2596be;"   class="font-semibold">${room.room}</h3>
+      <p style="background-color:#2596be; opacity:0.9; color:gold;">Description: ${room.description}</p>
+      <p style="background-color:#2596be; opacity:0.9; color:gold;">Language: ${room.language}</p>
+      <p align="right" style="background-color:#2596be; opacity:0.9; color:#FF2900; font-size:1.2em;">Author: ${room.user}</p>
       <button id="join-room" class="text-red-500 bg-gray-200 px-2 py-1 rounded hover:bg-gray-300" >Join</button>
       <button id="del-room" class="text-red-500 bg-gray-200 px-2 py-1 rounded hover:bg-gray-300" >Delete</button>
     `;
@@ -160,6 +180,18 @@ function editRoom(roomName){
   socket.emit("edit room",roomName);
 }
 
+function toChat(){
+  alert("Connecting to support service...");
+  socket.emit("add friend", { name: "Support service" });
+  socket.on("friend added", (name) => {
+    alert(`✅ ${name} добавлен в друзья`);
+    socket.emit("get hash","Support service");
+  });
+  socket.on("set hash",(hash)=>{
+    console.log(hash);    
+    window.location.href = `/your?room=${encodeURIComponent(hash)}`;          
+  }) 
+}
 </script>
 
   <style>
@@ -199,7 +231,7 @@ function editRoom(roomName){
       <a href="/chat" class="inline-block px-5 py-2 rounded-lg bg-indigo-500 text-white font-semibold shadow hover:bg-indigo-600 transition mb-4 sm:mb-0 text-center">
         Home
       </a>
-      <a href="/support-service" class="inline-block px-5 py-2 rounded-lg bg-green-500 text-white font-semibold shadow hover:bg-indigo-600 transition mb-4 sm:mb-0 text-center">Support service</a>
+      <a id="support" onclick="toChat()" class="inline-block px-5 py-2 rounded-lg bg-green-500 text-white font-semibold shadow hover:bg-indigo-600 transition mb-4 sm:mb-0 text-center">Support service</a>
 
       <h1 style="text-align: center;" id="user-name" class="text-2xl sm:text-3xl font-bold">User</h1>
     </div>

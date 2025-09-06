@@ -1,5 +1,4 @@
-// Сделай службу поддержки
-// Сделай кортинки для комнат
+// сделай разные фоны комнат 
 const express = require("express");
 const http = require("http");
 const path = require("path");
@@ -32,12 +31,11 @@ app.use(express.urlencoded({ extended: true }));
 const io = new Server(server);
 
 require("./mafia-game")(io);
-
 sequelize.authenticate()
   .then(() => console.log("✅ Підключено до бази даних"))
   .catch((err) => console.error("❌ Помилка підключення:", err.message));
 
-app.use(express.static(path.join(__dirname, "content")));
+app.use("/content", express.static("content"));
 
 app.get("/", (req, res) => res.sendFile(path.join(__dirname, "content", "auth.html")));
 app.get("/forgot-password", (req, res) => res.sendFile(path.join(__dirname, "content", "forgot-password.html")));
@@ -50,12 +48,6 @@ app.get("/users-chat",(req,res)=>{res.sendFile(path.join(__dirname,"content","us
 app.get("/messages",(req,res)=>{res.sendFile(path.join(__dirname,"content","messages.html"))});
 app.get("/us_profile", (req, res) => res.sendFile(path.join(__dirname, "content", "user-profile.html")));
 app.get("/search",(req,res)=>res.sendFile(path.join(__dirname,"content","search.html")));
-const LIQPAY_PUBLIC_KEY = "sandbox_i55874930238";
-const LIQPAY_PRIVATE_KEY = "sandbox_vIVAwR6BVucTxSCb9aT98KPfxrjQuYbQTPZgE35Y";
-
-
-
-
 
 app.get("/room-chat", (req, res) => {
   res.sendFile(path.join(__dirname, "content", "chat.html"));
@@ -564,38 +556,39 @@ io.on("connection", (socket) => {
   });
   const currentUser = users.length > 0 ? users[users.length - 1].username : null;
 
-  socket.on("add friend", ({ name }) => {
+  socket.on("add friend", async ({ name }) => {
+    console.log(`➡ Добавление друга: ${name}`);
+    const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
+    const currentUser = usersData[usersData.length - 1];
     try {
       if (!currentUser) {
         socket.emit("friend error", "Вы не авторизованы");
         return;
       }
 
-      const userIndex = users.findIndex(u => u.username === currentUser);
-      if (userIndex === -1) {
-        socket.emit("friend error", "Текущий пользователь не найден");
+      const existingFriend = await UserMessage.findOne({
+        where: { sender: currentUser.username, recipient: name }
+      });
+
+      if (existingFriend) {
+        socket.emit("friend error", "Цей користувач вже у друзях");
         return;
       }
 
-      if (!users[userIndex].userFriends) {
-        users[userIndex].userFriends = [];
-      }
+      await UserMessage.create({
+        sender: currentUser.username,
+        recipient: name,
+        messages: []
+      });
 
-      if (users[userIndex].userFriends.includes(name)) {
-        socket.emit("friend error", "Этот пользователь уже в друзьях");
-        return;
-      }
-
-      users[userIndex].userFriends.push(name);
-      fs.writeFileSync(filePath, JSON.stringify(users, null, 2));
-
-      console.log(`✅ ${currentUser} добавил друга ${name}`);
+      console.log(`✅ ${currentUser.username} добавил друга ${name}`);
       socket.emit("friend added", name);
     } catch (err) {
       console.error("❌ Error adding friend:", err);
       socket.emit("friend error", "Ошибка сервера");
     }
   });
+
   socket.on("add to main room", async ({user, room_name, description, language}) => {
     try {
       const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
@@ -645,32 +638,34 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("show saved rooms", () => {
+  socket.on("show saved rooms", async () => {
     console.log("show saved rooms");
     try {
       const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
-      const currentUser = usersData[usersData.length - 1]; // последний вошедший
+      const currentUser = usersData.at(-1);
 
-      DataRoom.findAll({
+      // ВАЖНО: raw: true и алиасы полей
+      const rows = await DataRoom.findAll({
         where: { username: currentUser.username },
-        attributes: ["room", "description", "username", "language", "user"],
-      }).then(rooms => {
-        
-        const uniqueRooms = rooms.filter(
-          (room, index, self) =>
-            index === self.findIndex(r => r.room === room.room)
-        );
-        currentUser.savedRooms = uniqueRooms.map(r => r.room);
-        fs.writeFileSync(filePath, JSON.stringify(usersData, null, 2));
-        console.log(currentUser.savedRooms);
-        console.log("📋 Список уникальных комнат:", uniqueRooms.map(r => r.room));
-        socket.emit("saved rooms", uniqueRooms);
+        attributes: [
+          ["room", "room"],
+          ["description", "description"],
+          ["language", "language"],
+          ["user", "user"]
+        ],
+        raw: true,
       });
+
+      console.log("📋 Сохранённые комнаты из БД:", rows.map(r => r.user));
+
+      
+      socket.emit("saved rooms", rows); // уже plain-объекты с {room, description, language, author}
     } catch (err) {
       console.error("❌ Ошибка чтения комнат:", err);
       socket.emit("saved rooms", []);
     }
   });
+
 
   socket.on("del account",()=>{
     const username = users.length > 0 ? users[users.length - 1].username : null;
@@ -735,6 +730,9 @@ io.on("connection", (socket) => {
   });
   socket.on("getRooms", async (room) => {
     console.log("➡ Отримання списку кімнат");
+    const backgrounds = ["study.jpg", "social.jpg"]
+    const randomIndex = Math.floor(Math.random() * backgrounds.length);
+    background = backgrounds[randomIndex];
     try {
       const rooms = await UserRoom.findAll({
         attributes: ["room_name", "description","user_name","language","categorie"], 
@@ -747,13 +745,19 @@ io.on("connection", (socket) => {
       socket.emit("roomsList", []);
     }
   });
+  socket.on("newRoom", (room) => {
+    const existing = document.querySelector(`[data-room="${room.room_name}"]`);
+    if (existing) return; // уже є — не додаємо
+    renderRoom(room);
+  });
+
   socket.on("saveRoom",(room)=>{
   const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
   const currentUser = usersData[usersData.length - 1];
   currentUser.savedRooms.push(room);
   fs.writeFileSync(filePath, JSON.stringify(currentUser, null, 2));
   })
-  socket.on("createRoom", async ({ userName, roomName, roomDescription, language, categorie }) => {
+  socket.on("createRoom", async ({ roomName, roomDescription, language, categorie }) => {
     if (!roomName || !roomDescription) {
       socket.emit("createRoomError", "Заповніть всі поля");
       return;
@@ -780,7 +784,7 @@ io.on("connection", (socket) => {
       const newRoom = await UserRoom.create({
         room_name: roomName,
         description: roomDescription,
-        user_name: userName,
+        user_name: currentUser.username,
         date: new Date(),
         language: language || "en",
         categorie: categorie,
@@ -947,41 +951,7 @@ io.on("connection", (socket) => {
       attributes:["useraname"],
     });
   })
-  socket.on("createRoom", async ({ roomName, roomDescription }) => {
-    if (!roomName || !roomDescription) {
-        socket.emit("createRoomError", "Будь ласка, заповніть всі поля");
-        return;
-    }
-    const room = await UserRoom.findOne({ where: { room_name: roomName } });
-    if (room) {
-      socket.emit("createRoomError", "Кімната з такою назвою вже існує");
-      return;
-    }
-
-    // Сохраняем комнату в users.json
-    const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
-    if (!usersData.length) {
-      socket.emit("createRoomError", "Ви не авторизовані. Зайдіть через сторінку реєстрації.");
-      return;
-    }
-    const lastUser = usersData[usersData.length - 1];
-    const username = lastUser.username;
-
-    // Добавляем комнату в mainRooms пользователя
-    if (!lastUser.mainRooms) lastUser.mainRooms = [];
-    lastUser.mainRooms.push(roomName);
-    fs.writeFileSync(filePath, JSON.stringify(usersData, null, 2));
-
-    const newRoom = await UserRoom.create({
-      user_name: username, 
-      room_name: roomName,
-      description: roomDescription,
-      date: new Date()
-    });{
-        socket.emit("createRoomError", "Кімната з такою назвою вже існує");
-        return;
-    };
-  });
+  
   socket.on("set zero", () => {
     list = 0;
     console.log("🔍 Режим поиска: комнаты");
@@ -997,13 +967,30 @@ io.on("connection", (socket) => {
     const currentUser = usersData[usersData.length - 1]; 
     const username = currentUser.username || "User"; 
     console.log(username);
-    socket.emit("set username", username);
+    if (!username) {
+      socket.emit("no user");
+      return;
+    }else{
+      socket.emit("set username", username);
+    }
+    
   })
   socket.on("set one", () => {
     list = 1;
     console.log("🔍 Режим поиска: пользователи");
   });
+  socket.on("check admin",()=>{
+    const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
+    const currentUser = usersData[usersData.length - 1];
 
+    User.findOne({where:{name:currentUser.username}}).then(user=>{
+      if(user && user.status === "admin"){
+        socket.emit("is admin");
+      }else{
+        socket.emit("not admin");
+      }
+    });
+  })
   socket.on("go search", async ({ search }) => {
     console.log("Search:", search);
 
