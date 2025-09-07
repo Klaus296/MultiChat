@@ -2,6 +2,7 @@
 <html lang="uk">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Вхід</title>
   <link rel="stylesheet" href="auth/style.css" />
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -9,7 +10,7 @@
 </head>
 <body>
   <div id="login-content">
-    <a href="/" id="register-btn" style="margin: 0; position: absolute; top: 2%; background-color: #4f46e5; right: 4%; color: white; font-size: 1.2em; padding: 6px 12px; border-radius: 8px;">
+    <a href="/" id="register-btn">
       Реєстрація
     </a>
 
@@ -19,7 +20,7 @@
         <input id="user-password" type="text" placeholder="Password" required />
         <input type="submit" value="Login" />
       </form>
-      <a href="forgot-password">Forgot password?</a>
+      <a href="forgot-password" id="forgot-link">Забули пароль?</a>
     </div>
   </div>
 
@@ -28,27 +29,52 @@
       margin: 0;
       font-family: 'Inter', sans-serif;
       background: linear-gradient(135deg, #e0e7ff, #c3dafe);
-    }
-    #login-form {
-      display: flex; 
+      display: flex;
       justify-content: center;
       align-items: center;
       min-height: 100vh;
     }
+
+    #register-btn {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      padding: 0.5rem 1rem;
+      background-color: #4f46e5;
+      color: white;
+      font-size: 1rem;
+      font-weight: 600;
+      border-radius: 0.5rem;
+      text-decoration: none;
+      transition: background 0.3s ease;
+      z-index: 10;
+    }
+
+    #register-btn:hover {
+      background-color: #3730a3;
+    }
+
+    #login-form {
+      width: 100%;
+      max-width: 400px;
+      padding: 1rem;
+    }
+
     #loginForm {
       background: white;
       padding: 2rem;
       border-radius: 1rem;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-      width: 100%;
-      max-width: 400px;
       transition: transform 0.3s ease, box-shadow 0.3s ease;
     }
+
     #loginForm:hover {
       transform: translateY(-5px);
       box-shadow: 0 6px 30px rgba(0, 0, 0, 0.15);
     }
-    input[type="text"], input[type="password"] {
+
+    input[type="text"],
+    input[type="password"] {
       width: 100%;
       padding: 0.75rem;
       margin-bottom: 1rem;
@@ -57,14 +83,17 @@
       font-size: 1rem;
       transition: border-color 0.3s ease, box-shadow 0.3s ease;
     }
-    input[type="text"]:focus, input[type="password"]:focus {
+
+    input[type="text"]:focus,
+    input[type="password"]:focus {
       outline: none;
       border-color: #6366f1;
       box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
     }
+
     input[type="submit"] {
       width: 100%;
-      padding: 0.75rem;
+      padding: 0.9rem;
       background: #6366f1;
       color: white;
       border: none;
@@ -74,12 +103,50 @@
       cursor: pointer;
       transition: background 0.3s ease, transform 0.2s ease;
     }
+
     input[type="submit"]:hover {
       background: #4f46e5;
       transform: translateY(-2px);
     }
+
     input[type="submit"]:active {
       transform: translateY(0);
+    }
+
+    #forgot-link {
+      display: block;
+      text-align: center;
+      margin-top: 1rem;
+      font-size: 0.9rem;
+      color: #4f46e5;
+      text-decoration: none;
+      transition: color 0.3s ease;
+    }
+
+    #forgot-link:hover {
+      color: #3730a3;
+      text-decoration: underline;
+    }
+
+    /* 📱 Адаптивність */
+    @media (max-width: 600px) {
+      #loginForm {
+        padding: 1.5rem;
+      }
+
+      input[type="text"],
+      input[type="password"] {
+        font-size: 0.95rem;
+      }
+
+      input[type="submit"] {
+        font-size: 1rem;
+      }
+
+      #register-btn {
+        font-size: 0.9rem;
+        padding: 0.4rem 0.8rem;
+      }
     }
   </style>
 
@@ -87,7 +154,7 @@
     document.addEventListener("DOMContentLoaded", () => {
       const socket = io("http://localhost:5050");
 
-      // Если уже авторизован — редирект в чат
+      // Якщо вже авторизований — редирект у чат
       fetch("/api/me")
         .then(res => res.json())
         .then(user => {

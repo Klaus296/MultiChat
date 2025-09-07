@@ -13,6 +13,10 @@
   
   document.addEventListener("DOMContentLoaded", () => {
   socket.emit("check admin");
+  socket.emit("check name");
+  socket.on("no name", () => {
+    window.location.href = "/";
+  });
   socket.on("is admin",()=>{
     document.getElementById("support").style.display="inline-block";
     document.getElementById("support").onclick=null;

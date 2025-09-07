@@ -201,6 +201,28 @@ io.on("connection", (socket) => {
 
     io.to(room).emit("system_message", "🎭 Роли розданы админом!");
   });
+  socket.on("check name", () => {
+    console.log("Check name");
+
+    let usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
+    let currentUser = usersData[usersData.length - 1];
+
+    User.findOne({ where: { name: currentUser.username } })
+      .then(user => {
+        if (user) {
+          socket.emit("has name");
+        } else {
+          // перезаписываем файл пустым массивом
+          fs.writeFileSync(filePath, JSON.stringify([], null, 2), "utf8");
+          socket.emit("no name");
+        }
+      })
+      .catch(err => {
+        console.error("❌ Ошибка при проверке имени:", err);
+        socket.emit("no name");
+      });
+  });
+
 
   // Игрок выполняет действие (например голосует)
   socket.on("player_action", async ({ user, room, action }) => {
@@ -593,7 +615,11 @@ io.on("connection", (socket) => {
     try {
       const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
       const currentUser = usersData[usersData.length - 1];
-
+      const existingRoom = await DataRoom.findOne({ where: { room: room_name } });
+      if (existingRoom) {
+        socket.emit("main room error", "Кімната з такою назвою вже існує");
+        return;
+      }
       // Используйте правильное имя модели (Room или UserRoom)
       const newUser = await DataRoom.create({
         user: user,
@@ -602,11 +628,7 @@ io.on("connection", (socket) => {
         description: description,
         language: language,
       });
-      const existingRoom = await DataRoom.findOne({ where: { room: room_name } });
-      if (existingRoom) {
-        socket.emit("main room error", "Кімната з такою назвою вже існує");
-        return;
-      }
+      
       console.log("✅ Новая запись в Room:", newUser.toJSON());
       socket.emit("main room added", room_name);
     } catch (err) {

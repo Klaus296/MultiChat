@@ -2,87 +2,198 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Реєстрація</title>
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="http://localhost:5050/socket.io/socket.io.js"></script>
   <script>
-  const socket = io("http://localhost:5050");
-    
+    const socket = io("http://localhost:5050");
 
-  document.addEventListener("DOMContentLoaded", () => {
-    // Проверка, есть ли уже пользователь — редирект
-    fetch("/api/users")
-      .then(res => res.json())
-      .then(users => {
-      console.log("typeof:", typeof users, "isArray:", Array.isArray(users), users);
-      if (Array.isArray(users) && users.length > 0) {
-        window.location.href = "/chat";
-      }
-      })
-      .catch(err => console.error("❌ Error fetching users:", err));
-  
-  document.getElementById("enter-btn").addEventListener("click",()=>{
-    console.log("click");
-    window.location.href = "/enter";
-  });
-    document.getElementById("registerForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
+    document.addEventListener("DOMContentLoaded", () => {
+      // Проверка на наличие пользователя
+      fetch("/api/users")
+        .then(res => res.json())
+        .then(users => {
+          if (Array.isArray(users) && users.length > 0) {
+            window.location.href = "/chat";
+          }
+        })
+        .catch(err => console.error("❌ Error fetching users:", err));
 
-      const name = document.getElementById("user-name").value.trim();
-      const email = document.getElementById("user-email").value.trim();
-      const password = document.getElementById("user-password").value.trim();
-      const language = document.getElementById("language").value.trim();
-      // Валидация имени и пароля
-      if (!name || !password) return alert("❌ Заповніть всі поля");
-      if (name.length > 20) return alert("Nickname cannot be more than 20 characters");
-      if (password.length < 4) return alert("Password cannot be less than 4 characters");
-      if (password.length > 20) return alert("Password cannot be more than 20 characters");
-      if (!validateEmail(email)){
-        return alert("Uncorrect email");
-      }
-      try {
-        // Проверка на сервере
-        const res = await fetch(`/api/check-user/${encodeURIComponent(name)}`);
-        const data = await res.json();
+      document.getElementById("enter-btn").addEventListener("click", () => {
+        window.location.href = "/enter";
+      });
 
-        if (data.exists) {
-          alert("Користувач з таким ім'ям вже існує");
-          return;
+      document.getElementById("registerForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const name = document.getElementById("user-name").value.trim();
+        const email = document.getElementById("user-email").value.trim();
+        const password = document.getElementById("user-password").value.trim();
+        const language = document.getElementById("language").value.trim();
+
+        if (!name || !password || !email) return alert("❌ Заповніть всі поля");
+        if (name.length > 20) return alert("Nickname не може бути довше 20 символів");
+        if (password.length < 4) return alert("Пароль має бути не менше 4 символів");
+        if (password.length > 20) return alert("Пароль має бути не більше 20 символів");
+        if (!validateEmail(email)) return alert("Некоректний email");
+
+        try {
+          const res = await fetch(`/api/check-user/${encodeURIComponent(name)}`);
+          const data = await res.json();
+
+          if (data.exists) {
+            alert("Користувач з таким ім'ям вже існує");
+            return;
+          }
+
+          socket.emit("register", { name, password, language, email });
+        } catch (err) {
+          console.error("❌ Error checking user:", err);
+          alert("Server error");
         }
+      });
 
-        // Если нет — регистрируем
-        socket.emit("register", { name, password,language,email });
-
-      } catch (err) {
-        console.error("❌ Error checking user:", err);
-        alert("Server error");
-      }
+      socket.on("registerSuccess", () => window.location.href = "/chat");
+      socket.on("useRegister", () => window.location.href = "/chat");
+      socket.on("registerError", msg => alert("❌ " + msg));
+      socket.on("redirectToChat", () => window.location.href = "/chat");
     });
 
-    socket.on("registerSuccess", () => window.location.href = "/chat");
-    socket.on("useRegister", () => window.location.href = "/chat");
-    socket.on("registerError", msg => alert("❌ " + msg));
-    socket.on("redirectToChat", () => window.location.href = "/chat");
-  });
-  function validateEmail(email) {
-    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return re.test(email);
-  }
+    function validateEmail(email) {
+      const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      return re.test(email);
+    }
+  </script>
 
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, #e0e7ff, #c3dafe);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
 
-</script>
+    #enter-btn {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      padding: 0.5rem 1rem;
+      background-color: #6366f1;
+      color: white;
+      font-size: 1rem;
+      font-weight: 600;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.3s ease;
+      z-index: 10;
+    }
 
+    #enter-btn:hover {
+      background-color: #4f46e5;
+    }
+
+    #register-form {
+      width: 100%;
+      max-width: 420px;
+      padding: 1rem;
+    }
+
+    #registerForm {
+      background: white;
+      padding: 2rem;
+      border-radius: 1rem;
+      box-shadow: 0 6px 30px rgba(0, 0, 0, 0.1);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    #registerForm:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+    }
+
+    input[type="text"],
+    input[type="password"],
+    select {
+      width: 100%;
+      padding: 0.75rem;
+      margin-bottom: 1rem;
+      border: 1px solid #d1d5db;
+      border-radius: 0.5rem;
+      font-size: 1rem;
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    input[type="text"]:focus,
+    input[type="password"]:focus,
+    select:focus {
+      outline: none;
+      border-color: #6366f1;
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+    }
+
+    input[type="submit"] {
+      width: 100%;
+      padding: 0.9rem;
+      background: #6366f1;
+      color: white;
+      border: none;
+      border-radius: 0.5rem;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.3s ease, transform 0.2s ease;
+    }
+
+    input[type="submit"]:hover {
+      background: #4f46e5;
+      transform: translateY(-2px);
+    }
+
+    input[type="submit"]:active {
+      transform: translateY(0);
+    }
+
+    /* 📱 Адаптивность */
+    @media (max-width: 600px) {
+      body {
+        padding: 1rem;
+      }
+
+      #registerForm {
+        padding: 1.5rem;
+      }
+
+      input[type="text"],
+      input[type="password"],
+      select {
+        font-size: 0.9rem;
+      }
+
+      input[type="submit"] {
+        font-size: 0.95rem;
+      }
+
+      #enter-btn {
+        font-size: 0.9rem;
+        padding: 0.4rem 0.8rem;
+      }
+    }
+  </style>
 </head>
 <body>
-  <div id="register-content">
-    <a  id="enter-btn" style="margin: 0;position: absolute; top:2%;background-color: #4f46e5; right:4%; color: red; font-size: 1.5em;" align="right">Enter</a>
-    <div id="register-form">
-      <form id="registerForm">
-        <input id="user-name" type="text" placeholder="Username" required />
-        <input id="user-email" type="text" placeholder="Email" required />
-        <input id="user-password" type="text" placeholder="Password" required />
-        
-        <select id="language" class="w-full p-2 border rounded">
+  <a id="enter-btn">Enter</a>
+  <div id="register-form">
+    <form id="registerForm">
+      <input id="user-name" type="text" placeholder="Username" required />
+      <input id="user-email" type="text" placeholder="Email" required />
+      <input id="user-password" type="text" placeholder="Password" required />
+
+      <select id="language" class="w-full p-2 border rounded">
           <option value="af">Afrikaans</option>
           <option value="sq">Albanian</option>
           <option value="am">Amharic</option>
@@ -192,81 +303,9 @@
           <option value="yo">Yoruba</option>
           <option value="zu">Zulu</option>
         </select>
-        <input type="submit" value="Register" />
-      </form>
-    </div>
+
+      <input type="submit" value="Register" />
+    </form>
   </div>
-  
-  <style>
-    body{
-      margin: 0;
-    }
-    #register-content {
-      margin: 0;         
-      background: linear-gradient(135deg, #e0e7ff, #c3dafe);
-      font-family: 'Inter', sans-serif;
-    }
-    #register-form{
-      margin: 0;
-      display: flex; 
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-    }
-    #registerForm {
-      background: white;
-      padding: 2rem;
-      border-radius: 1rem;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-      width: 100%;
-      max-width: 400px;
-      transition: transform 0.3s ease, box-shadow 0.3s ease;
-    }
-
-    #registerForm:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 6px 30px rgba(0, 0, 0, 0.15);
-    }
-
-    input[type="text"],
-    input[type="password"] {
-      width: 100%;
-      padding: 0.75rem;
-      margin-bottom: 1rem;
-      border: 1px solid #d1d5db;
-      border-radius: 0.5rem;
-      font-size: 1rem;
-      transition: border-color 0.3s ease, box-shadow 0.3s ease;
-    }
-
-    input[type="text"]:focus,
-    input[type="password"]:focus {
-      outline: none;
-      border-color: #6366f1;
-      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
-    }
-
-    input[type="submit"] {
-      width: 100%;
-      padding: 0.75rem;
-      background: #6366f1;
-      color: white;
-      border: none;
-      border-radius: 0.5rem;
-      font-size: 1rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.3s ease, transform 0.2s ease;
-    }
-
-    input[type="submit"]:hover {
-      background: #4f46e5;
-      transform: translateY(-2px);
-    }
-
-    input[type="submit"]:active {
-      transform: translateY(0);
-    }
-  </style>
 </body>
 </html>
