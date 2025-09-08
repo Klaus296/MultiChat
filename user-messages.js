@@ -2,6 +2,11 @@ const { DataTypes } = require("sequelize");
 const { sequelize } = require("./db");
 
 const UserMessage = sequelize.define("UserMessage", {
+  id:{
+    type: DataTypes.INTEGER,
+    autoIncrement: true,
+    primaryKey: true
+  },
   sender: {
     type: DataTypes.STRING,
     allowNull: false
@@ -15,7 +20,7 @@ const UserMessage = sequelize.define("UserMessage", {
     allowNull: false
   }
 }, {
-  tableName: "user-messages",
+  tableName: "user_messages",
   timestamps: false   // ⬅️ ВАЖНО!
 });
 

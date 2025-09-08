@@ -1,14 +1,9 @@
 [
   {
-    "username": "Mr.Klaus",
-    "pass": "1234",
-    "createdAt": "2025-09-07T07:19:18.381Z",
-    "language": "af",
-    "savedRooms": [
-      "Chat"
-    ],
-    "email": "kravcenkostanislav516@gmail.com",
-    "chatNow": "",
-    "roomNow": "Chat"
+    "username": "Stas",
+    "createdAt": "2025-09-08T15:14:38.329Z",
+    "savedRooms": [],
+    "mainRooms": [],
+    "userFriends": []
   }
 ]

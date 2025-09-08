@@ -1,34 +1,44 @@
-// models/MafiaUser.js
+// db.js
 const { Sequelize, DataTypes } = require("sequelize");
 
-// Параметри підключення
-const sequelize = new Sequelize("multichat-users", "root", "R9m!kZ2p#X7vQ4t", {
-  host: "localhost",
+// Настройка подключения
+const sequelize = new Sequelize("railway", "root", "uhnKiDdqwDIqBIdOmDQHPaKMmcHCHoId", {
+  host: "switchback.proxy.rlwy.net",
+  port: 20568,
   dialect: "mysql",
-  port: 5049
+  dialectOptions: {
+    connectTimeout: 60000,
+  },
+  logging: false,
 });
 
-const MafiaUser = sequelize.define("MafiaUser", {
-    user: {
-        type: DataTypes.STRING,
-        allowNull: false,
-        unique: true,
-    },
-    role: {
-        type: DataTypes.STRING,
-        allowNull: true, // например "mafia", "citizen", "don", "sheriff"
-    },
-    room: {
-        type: DataTypes.STRING,
-        allowNull: true, // имя комнаты/игры
-    },
-    do: {
-        type: DataTypes.STRING,
-        allowNull: true,
-    }
+// Модель пользователей
+const MafiaUser = sequelize.define("User", {
+  id: {
+    type: DataTypes.INTEGER,
+    autoIncrement: true,
+    primaryKey: true,
+  },
+  user_name: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  room: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  role_text:{
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  do_text:{
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
 }, {
-    tableName: "mafia-users",
-    timestamps: false // если нет createdAt и updatedAt
+  tableName: "mafia_users",
+  timestamps: false,
 });
 
-module.exports = MafiaUser;
+// Экспортируем
+module.exports = { sequelize, MafiaUser };

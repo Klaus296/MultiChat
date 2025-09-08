@@ -115,10 +115,6 @@
   
   document.addEventListener("DOMContentLoaded", () => {
     socket.emit("getRooms");
-    socket.emit("check name");
-    socket.on("no name", () => {
-      window.location.href = "/";
-    });
   });
   
   socket.on("roomsList", (rooms) => {

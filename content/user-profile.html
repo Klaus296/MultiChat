@@ -12,11 +12,7 @@
   const mainRooms = [];
   
   document.addEventListener("DOMContentLoaded", () => {
-  socket.emit("check admin");
-  socket.emit("check name");
-  socket.on("no name", () => {
-    window.location.href = "/";
-  });
+  // socket.emit("check admin");
   socket.on("is admin",()=>{
     document.getElementById("support").style.display="inline-block";
     document.getElementById("support").onclick=null;
@@ -30,8 +26,7 @@
     socket.emit("change language",(language));
   });
 
-  socket.emit("get user name")
-  socket.emit("show friends");  // запрос списка друзей
+  socket.emit("get user name");
   socket.emit("show rooms");
   socket.emit("show saved rooms");
 

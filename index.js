@@ -1,3 +1,4 @@
+
 // сделай разные фоны комнат 
 const express = require("express");
 const http = require("http");
@@ -33,6 +34,9 @@ const io = new Server(server);
 require("./mafia-game")(io);
 sequelize.authenticate()
   .then(() => console.log("✅ Підключено до бази даних"))
+  .then(()=> User.findAll().then(usersFromDb => {
+    console.log(`👥 Користувачів у БД: ${usersFromDb.length}`);
+  }))
   .catch((err) => console.error("❌ Помилка підключення:", err.message));
 
 app.use("/content", express.static("content"));
@@ -62,11 +66,11 @@ app.post("/api/login-or-register", async (req, res) => {
     }
 
     // Ищем пользователя в БД
-    let user = await User.findOne({ where: { name } });
+    let user = await User.findOne({ where: { username:name } });
 
     if (user) {
       // Пользователь есть — проверяем пароль
-      const match = await bcrypt.compare(password, user.pass);
+      const match = await bcrypt.compare(password, user.password);
       if (!match) {
         return res.status(401).json({ success: false, message: "Невірний пароль" });
       }
@@ -89,8 +93,8 @@ app.post("/api/login-or-register", async (req, res) => {
       const hashedPassword = await bcrypt.hash(password, 10);
 
       const newUser = await User.create({
-        name,
-        pass: hashedPassword,
+        username: name,
+        password: hashedPassword,
         status: "user",
         date: new Date()
       });
@@ -118,7 +122,7 @@ app.get("/api/check-user/:name", async (req, res) => {
   if (!username) return res.json({ exists: false });
 
   try {
-    const user = await User.findOne({ where: { name: username } });
+    const user = await User.findOne({ where: { username: username } });
     res.json({ exists: !!user });
   } catch (err) {
     console.error("❌ Error checking user:", err);
@@ -181,10 +185,10 @@ io.on("connection", (socket) => {
     if (!player) {
       // Добавляем игрока в базу
       player = await MafiaUser.create({
-        user,
+        user_name: user,
         room,
-        role: "pending", // роль выдаст админ
-        do: "none",
+        role_text: "pending", // роль выдаст админ
+        do_text: "none",
       });
     }
 
@@ -196,7 +200,7 @@ io.on("connection", (socket) => {
   socket.on("assign_roles", async ({ room, roles }) => {
     // roles = { "Игрок1": "mafia", "Игрок2": "citizen", ... }
     for (const [user, role] of Object.entries(roles)) {
-      await MafiaUser.update({ role }, { where: { user, room } });
+      await MafiaUser.update({ role_text }, { where: { user_name, room } });
     }
 
     io.to(room).emit("system_message", "🎭 Роли розданы админом!");
@@ -226,7 +230,7 @@ io.on("connection", (socket) => {
 
   // Игрок выполняет действие (например голосует)
   socket.on("player_action", async ({ user, room, action }) => {
-    await MafiaUser.update({ do: action }, { where: { user, room } });
+    await MafiaUser.update({ do_text: action }, { where: { user_name, room } });
 
     io.to(room).emit("system_message", `${user} сделал действие: ${action}`);
   });
@@ -476,7 +480,7 @@ io.on("connection", (socket) => {
     const currentUser = usersData[usersData.length - 1];
     currentUser.language = language;
     fs.writeFileSync(filePath, JSON.stringify(usersData, null, 2));
-    User.update({language:language},{where:{name:currentUser.username}});
+    User.update({language:language},{where:{username:currentUser.username}});
     console.log(`Language changed to ${language}`);
     socket.emit("language changed",language);
   });
@@ -526,7 +530,7 @@ io.on("connection", (socket) => {
   socket.on("change name",(name)=>{
     const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
     const currentUser = usersData[usersData.length - 1];
-    User.update({name:name},{where:{name:currentUser.username}});
+    User.update({username:name},{where:{username:currentUser.username}});
     UserMessage.update({sender:name},{where:{sender:currentUser.username}});
     UserMessage.update({recipient:name},{where:{recipient:currentUser.username}});
     DataRoom.update({username:name},{where:{username:currentUser.username}});
@@ -622,7 +626,7 @@ io.on("connection", (socket) => {
       }
       // Используйте правильное имя модели (Room или UserRoom)
       const newUser = await DataRoom.create({
-        user: user,
+        name: user,
         username: currentUser.username, // main name
         room: room_name, // Обратите внимание: в модели Room поле называется 'room', а не 'room_name'
         description: description,
@@ -668,12 +672,12 @@ io.on("connection", (socket) => {
 
       // ВАЖНО: raw: true и алиасы полей
       const rows = await DataRoom.findAll({
-        where: { username: currentUser.username },
+        where: { name: currentUser.username },
         attributes: [
           ["room", "room"],
           ["description", "description"],
           ["language", "language"],
-          ["user", "user"]
+          ["name", "name"]
         ],
         raw: true,
       });
@@ -701,8 +705,8 @@ io.on("connection", (socket) => {
       return;
     }
     try{
-      User.destroy({where:{name:"Stas"},
-        attributes:["name"],
+      User.destroy({where:{username:username},
+        attributes:["username"],
       });
       if (index !== -1) {
         usersData.splice(index, 1);
@@ -726,8 +730,8 @@ io.on("connection", (socket) => {
     }
     try {
       const newUser = await User.create({
-        name:name,
-        pass: hashedPassword,
+        username:name,
+        password: hashedPassword,
         status: "user",
         date: new Date(),
         language: language,
@@ -1005,7 +1009,7 @@ io.on("connection", (socket) => {
     const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
     const currentUser = usersData[usersData.length - 1];
 
-    User.findOne({where:{name:currentUser.username}}).then(user=>{
+    User.findOne({where:{username:currentUser.username}}).then(user=>{
       if(user && user.status === "admin"){
         socket.emit("is admin");
       }else{
@@ -1040,8 +1044,8 @@ io.on("connection", (socket) => {
       // Поиск пользователей
       try {
         const results = await User.findAll({
-          where: { name: { [Op.like]: `%${search}%` } },
-          attributes: ["name"],
+          where: { username: { [Op.like]: `%${search}%` } },
+          attributes: ["username"],
           raw: true
         });
         socket.emit("search result", results, list);

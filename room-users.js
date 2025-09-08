@@ -1,10 +1,14 @@
 // models/DataRoom.js
 const { Sequelize, DataTypes } = require("sequelize");
 
-const sequelize = new Sequelize("multichat-users", "root", "R9m!kZ2p#X7vQ4t", {
-  host: "localhost",
+const sequelize = new Sequelize("railway", "root", "uhnKiDdqwDIqBIdOmDQHPaKMmcHCHoId", {
+  host: "switchback.proxy.rlwy.net",
+  port: 20568,
   dialect: "mysql",
-  port: 5049,
+  dialectOptions: {
+    connectTimeout: 60000,
+  },
+  logging: false,
 });
 
 const DataRoom = sequelize.define("DataRoom", {
@@ -17,7 +21,7 @@ const DataRoom = sequelize.define("DataRoom", {
     type: DataTypes.STRING,
     allowNull: false,
   },
-  user: {
+  name: {
     type: DataTypes.STRING,
     allowNull: false,
   },
@@ -30,7 +34,7 @@ const DataRoom = sequelize.define("DataRoom", {
     allowNull: true,
   },
 }, {
-  tableName: "data-rooms", // имя таблицы в БД
+  tableName: "data_rooms", // имя таблицы в БД
   timestamps: false,       // если нет createdAt/updatedAt
 });
 

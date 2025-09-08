@@ -1,52 +1,60 @@
+// db.js
 const { Sequelize, DataTypes } = require("sequelize");
 
-const sequelize = new Sequelize("multichat-users", "root", "R9m!kZ2p#X7vQ4t", {
-  host: "localhost",
-  port: 5049,
+// Настройка подключения
+const sequelize = new Sequelize("railway", "root", "uhnKiDdqwDIqBIdOmDQHPaKMmcHCHoId", {
+  host: "switchback.proxy.rlwy.net",
+  port: 20568,
   dialect: "mysql",
+  dialectOptions: {
+    connectTimeout: 60000,
+  },
   logging: false,
 });
 
-const User = sequelize.define("multichat_users", {
+// Модель пользователей
+const User = sequelize.define("User", {
   id: {
     type: DataTypes.INTEGER,
-    primaryKey: true,
     autoIncrement: true,
+    primaryKey: true,
   },
-  name: {
-    type: DataTypes.STRING(50),
+  username: {
+    type: DataTypes.STRING,
     allowNull: false,
   },
-  status: {
-    type: DataTypes.STRING(20),
+  password: {
+    type: DataTypes.STRING,
     allowNull: false,
+  },
+  date:{
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW,
+    allowNull: false,
+  },
+  status:{
+    type: DataTypes.STRING,
     defaultValue: "user",
-  },
-  date: {
-    type: DataTypes.DATEONLY,
-    allowNull: false,
-    defaultValue: Sequelize.NOW,
-  },
-  pass: {
-    type: DataTypes.STRING(80),
     allowNull: false,
   },
-  language: {
-    type: DataTypes.STRING(2),
-    allowNull: false,
+  language:{
+    type: DataTypes.STRING,
     defaultValue: "en",
-  },
-  email: {
-    type: DataTypes.STRING(200),
     allowNull: false,
-    defaultValue: "undefined",
   },
+  email:{
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  isPremium:{
+    type: DataTypes.STRING,
+    defaultValue: "no",
+    allowNull: false,
+  }
 }, {
-  tableName: "multichat-users", // Назва таблиці з дефісом
+  tableName: "multichat_users",
   timestamps: false,
 });
 
-module.exports = {
-  sequelize,
-  User,
-};
+// Экспортируем
+module.exports = { sequelize, User };
