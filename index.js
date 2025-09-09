@@ -20,7 +20,7 @@ if (!fs.existsSync(filePath)) fs.writeFileSync(filePath, "[]", "utf8");
 let users = JSON.parse(fs.readFileSync(filePath, "utf8"));
 const username = users.length > 0 ? users[users.length - 1].username : null;
 const chatsFile = path.join(__dirname, "chats.json");
-const PORT = process.env.PORT || 5050;
+const PORT = process.env.MYSQLPORT || 5050;
 const app = express();
 app.use(cors());
 const server = http.createServer(app);
