@@ -38,6 +38,14 @@ const io = new Server(server, {
   }
 });
 
+await sequelize.query(
+  "UPDATE messages SET messages=? WHERE id=?",
+  {
+    replacements: [JSON.stringify(messages), roomId],
+    type: sequelize.QueryTypes.UPDATE,
+    transaction: null
+  }
+);
 
 require("./mafia-game")(io);
 sequelize.authenticate()

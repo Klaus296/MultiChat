@@ -145,8 +145,7 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
-const socket = io();
-alert("If the messages do not appear, refresh the page.");
+const socket = io(window.location.origin);
 
 // Объявляем переменные в глобальной области видимости
 let chatNow = null;
@@ -183,6 +182,7 @@ fetch('/api/users')
         console.log(msg);
         socket.emit("set chat", { chatNow, mainName, msg });
         document.getElementById("messageText").value = "";
+        
     });
 })
 .catch(error => console.error("Ошибка загрузки chatNow:", error));
@@ -198,6 +198,7 @@ socket.on("chat set", (data) => {
         chatNow = data.chatNow;
     }
     
+
     const chatContent = document.getElementById("chat-content");
     chatContent.innerHTML = "";
 

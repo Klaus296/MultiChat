@@ -146,7 +146,6 @@
     <script src="/socket.io/socket.io.js"></script>
     <script>
 const socket = io(window.location.origin);
-alert("If the messages do not appear, refresh the page.");
 fetch('/api/users')
 .then(response => response.json())
 .then(data => {
@@ -164,7 +163,6 @@ fetch('/api/users')
         : "";
     console.log(roomNow);
     socket.emit("join chat", {mainName:roomNow, chatNow:roomNow });
-
     document.getElementById("messageForm").addEventListener("submit", (e) => {
         e.preventDefault();
         console.log(mainName, roomNow, chatNow);
@@ -200,7 +198,7 @@ socket.on("chat set", (data) => {
             const div = document.createElement("div");
             div.innerHTML = `<p><strong>${name}</strong>: <span id="msgText-${index}">${escapeHtml(text)}</span></p>`;
             div.style = "font-size:1.5em; color:#2F5C4B;";
-            // Создаем контейнер для кнопок, скрытый по умолчанию
+
             const btnContainer = document.createElement("div");
             btnContainer.style.display = "none";
             btnContainer.style.marginTop = "5px";
@@ -231,6 +229,7 @@ socket.on("chat set", (data) => {
                     btnContainer.style.display = "none";
                 });
             });
+
             const complainBtn = document.createElement("button");
             complainBtn.textContent = "Complain";
             btnContainer.appendChild(deleteBtn);
@@ -238,24 +237,21 @@ socket.on("chat set", (data) => {
             btnContainer.appendChild(complainBtn);
             div.appendChild(btnContainer);
 
-            // Показ кнопок по правому клику мыши
             div.addEventListener("contextmenu", (e) => {
                 e.preventDefault();
                 btnContainer.style.display = "block";
             });
 
-            // Показ кнопок по долгому тапу (touch)
             let touchTimer = null;
             div.addEventListener("touchstart", (e) => {
                 touchTimer = setTimeout(() => {
                     btnContainer.style.display = "block";
-                }, 500); // 500мс для долгого нажатия
+                }, 500);
             });
             div.addEventListener("touchend", (e) => {
                 clearTimeout(touchTimer);
             });
 
-            // Скрытие кнопок при клике вне сообщения
             document.addEventListener("click", (e) => {
                 if (!div.contains(e.target)) {
                     btnContainer.style.display = "none";

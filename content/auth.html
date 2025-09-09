@@ -49,9 +49,6 @@
       socket.on("registerSuccess", (name) => {
         window.location.href = "/chat"
       });
-      socket.on("useRegister", () => window.location.href = "/chat");
-      socket.on("registerError", msg => alert("❌ " + msg));
-      socket.on("redirectToChat", () => window.location.href = "/chat");
     });
 
     function validateEmail(email) {

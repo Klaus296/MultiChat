@@ -130,7 +130,7 @@
   <div id="searchResult"></div>
 
   <script>
-    const socket = io();
+    const socket = io(window.location.origin);
     let mode = 0; // 0 - комнаты, 1 - пользователи
     
     const roomsBtn = document.getElementById("listOfRooms");
