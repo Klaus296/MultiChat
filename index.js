@@ -1149,6 +1149,6 @@ io.on("connection", (socket) => {
 
 });
 
-server.listen(5050, () => {
+server.listen(PORT, () => {
   console.log("🚀 Сервер працює на http://localhost:5050");
 });
