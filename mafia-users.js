@@ -1,16 +1,7 @@
 // db.js
 const { Sequelize, DataTypes } = require("sequelize");
 
-// Настройка подключения
-const sequelize = new Sequelize("railway", "root", "uhnKiDdqwDIqBIdOmDQHPaKMmcHCHoId", {
-  host: "switchback.proxy.rlwy.net",
-  port: 20568,
-  dialect: "mysql",
-  dialectOptions: {
-    connectTimeout: 60000,
-  },
-  logging: false,
-});
+const { sequelize } = require("./db");
 
 // Модель пользователей
 const MafiaUser = sequelize.define("User", {

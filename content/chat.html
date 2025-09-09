@@ -170,6 +170,7 @@ fetch('/api/users')
 
     document.getElementById("messageForm").addEventListener("submit", (e) => {
         e.preventDefault();
+        console.log(mainName, roomNow, chatNow);
         const msg = document.getElementById("messageText").value.trim();
         if (!msg || !chatNow || mainName === "Unknown") return;
 

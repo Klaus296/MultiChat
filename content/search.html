@@ -190,12 +190,12 @@
         const div = document.createElement("div");
         div.className = "card";
         div.innerHTML = `
-          <h2>${user.name}</h2>
+          <h2>${user.username}</h2>
           <button class="add-friend-btn">Add Friend</button>
         `;
         const btn = div.querySelector(".add-friend-btn");
         btn.addEventListener("click", () => {
-          socket.emit("add friend", { name: user.name });
+          socket.emit("add friend", { name: user.username });
         });
         container.appendChild(div);
       });

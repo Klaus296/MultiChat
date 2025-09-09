@@ -1,15 +1,7 @@
 // models/DataRoom.js
 const { Sequelize, DataTypes } = require("sequelize");
 
-const sequelize = new Sequelize("railway", "root", "uhnKiDdqwDIqBIdOmDQHPaKMmcHCHoId", {
-  host: "switchback.proxy.rlwy.net",
-  port: 20568,
-  dialect: "mysql",
-  dialectOptions: {
-    connectTimeout: 60000,
-  },
-  logging: false,
-});
+const { sequelize } = require("./db");
 
 const DataRoom = sequelize.define("DataRoom", {
   id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },

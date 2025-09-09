@@ -2,7 +2,7 @@ const { DataTypes } = require("sequelize");
 const { sequelize } = require("./db");
 
 const UserMessage = sequelize.define("UserMessage", {
-  id:{
+  id: {
     type: DataTypes.INTEGER,
     autoIncrement: true,
     primaryKey: true
@@ -16,12 +16,12 @@ const UserMessage = sequelize.define("UserMessage", {
     allowNull: false
   },
   messages: {
-    type: DataTypes.JSON, // или TEXT, если хранишь строки
-    allowNull: false
+    type: DataTypes.JSON,
+    allowNull: false,
   }
 }, {
-  tableName: "user_messages",
-  timestamps: false   // ⬅️ ВАЖНО!
+  tableName: "messages",
+  timestamps: false
 });
 
 module.exports = { UserMessage };

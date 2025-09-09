@@ -171,7 +171,7 @@
         const password = document.getElementById("user-password").value.trim();
 
         if (!name || !password) return alert("❌ Заповніть всі поля");
-
+        console.log(password)
         try {
           const res = await fetch("/api/login-or-register", {
             method: "POST",

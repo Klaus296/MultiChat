@@ -183,7 +183,7 @@ fetch('/api/users')
         e.preventDefault();
         const msg = document.getElementById("messageText").value.trim();
         if (!msg || !chatNow || mainName === "Unknown") return;
-
+        console.log(msg);
         socket.emit("set chat", { chatNow, mainName, msg });
         document.getElementById("messageText").value = "";
     });

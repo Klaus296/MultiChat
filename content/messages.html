@@ -54,10 +54,21 @@
                     ${friendName[0].toUpperCase()}
                     </div>
                     <span class="font-medium">${friendName}</span>
+                    <button id="del-freiend">Delete</button>
                 `;
                 friendCard.onclick = () => toChat(friendName);
+                friendCard.querySelector("#del-freiend").onclick = (e) => {
+                    e.stopPropagation(); // чтобы не срабатывал клик по карточке
+                    if (confirm(`Are you sure you want to delete ${friendName} from friends?`)) {
+                    socket.emit("delete friend", friendName);
+                    friendCard.remove();
+                    }
+                };
                 friendsContainer.appendChild(friendCard);
                 });
+            });
+            socket.on("friend delete error", (message) => {
+                alert(message);
             });
             // слушаем список отправителей
             socket.on("chatList", (senders) => {

@@ -52,7 +52,7 @@ app.get("/users-chat",(req,res)=>{res.sendFile(path.join(__dirname,"content","us
 app.get("/messages",(req,res)=>{res.sendFile(path.join(__dirname,"content","messages.html"))});
 app.get("/us_profile", (req, res) => res.sendFile(path.join(__dirname, "content", "user-profile.html")));
 app.get("/search",(req,res)=>res.sendFile(path.join(__dirname,"content","search.html")));
-
+app.get("/new-password",(req,res)=>res.sendFile(path.join(__dirname,"content","new-password.html")));
 app.get("/room-chat", (req, res) => {
   res.sendFile(path.join(__dirname, "content", "chat.html"));
 });
@@ -234,18 +234,39 @@ io.on("connection", (socket) => {
 
     io.to(room).emit("system_message", `${user} сделал действие: ${action}`);
   });
-  socket.on("forgot-password", (email) => {
-    const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
-    const user = usersData.find(u => u.email === email);
+  socket.on("forgot-password", async (email) => {
+    try {
+      const user = await User.findOne({
+        where: { email: email },
+        attributes: ["username", "password", "language"]
+      });
 
-    if (user) {
-      socket.emit("correct email");
-      console.log("Correct email:", email);
-    } else {
-      socket.emit("incorrect email");
-      console.log("Incorrect email:", email);
+      if (user) {
+        users.push({
+          username: user.username,
+          pass: user.password, // ⚠️ лучше хранить хеш, а не пароль
+          createdAt: new Date().toISOString(),
+          language: user.language,
+          savedRooms: [],
+          email: email,
+          chatNow: "",
+          roomNow: ""
+        });
+
+        fs.writeFileSync(filePath, JSON.stringify(users, null, 2));
+
+        socket.emit("correct email");
+        console.log("Correct email:", email);
+      } else {
+        socket.emit("incorrect email");
+        console.log("Incorrect email:", email);
+      }
+    } catch (err) {
+      console.error("Error in forgot-password:", err);
+      socket.emit("forgot-password error", "Виникла помилка на сервері");
     }
   });
+
 
 
   // Получить список игроков в комнате
@@ -357,9 +378,36 @@ io.on("connection", (socket) => {
   });
 
 
+  socket.on("delete friend", async (friendName) => {
+    console.log(`Delete friend: ${friendName}`);
+    try {
+      const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
+      const currentUser = usersData[usersData.length - 1];
+      if (!currentUser) {
+        socket.emit("friend delete error", "Ви не авторизовані");
+        return;
 
-
-
+      }
+      UserMessage.destroy({
+        where: {
+          [Op.or]: [
+            { sender: currentUser.username },
+            { recipient: currentUser.username }
+          ]
+        },
+        attributes: ["recipient", "sender"],
+      }).then(() => {
+        console.log(`✅ ${currentUser.username} deleted friend ${friendName}`);
+        socket.emit("friend deleted", friendName);
+      }).catch(err => {
+        console.error("❌ Error deleting friend:", err);
+        socket.emit("friend delete error", "Server error");
+      });
+    } catch (err) {
+      console.error("❌ Error deleting friend:", err);
+      socket.emit("friend delete error", "Server error");
+    }
+  });
   socket.on("del room", async (room) => {
     try {
       console.log("Удаление сохранённой комнаты:", room);
@@ -382,6 +430,39 @@ io.on("connection", (socket) => {
     } catch (err) {
       console.error(err);
       socket.emit("room delete error", "Ошибка при удалении комнаты");
+    }
+  });
+  socket.on("new-password", async (newPassword) => {
+    try {
+      const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
+      const currentUser = usersData[usersData.length - 1];
+      if (!currentUser) {
+        socket.emit("password-update-error", "Користувач не знайдений");
+        return;
+      }
+
+      const email = currentUser.email;
+
+      // ждём пока bcrypt вернёт строку
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      // обновляем в БД
+      await User.update(
+        { password: hashedPassword },
+        { where: { email: email } }
+      );
+
+      // ⚠️ Лучше хранить хеш и в JSON тоже,
+      // но если тебе прям нужен открытый пароль:
+      currentUser.pass = newPassword;
+
+      fs.writeFileSync(filePath, JSON.stringify(usersData, null, 2));
+
+      socket.emit("password-updated");
+      console.log("Password updated for:", email);
+    } catch (err) {
+      console.error("Error updating password:", err);
+      socket.emit("password-update-error", "Помилка при оновленні пароля");
     }
   });
 

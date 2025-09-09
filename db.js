@@ -1,9 +1,10 @@
 // db.js
+require('@dotenvx/dotenvx').config();
 const { Sequelize, DataTypes } = require("sequelize");
 
 // Настройка подключения
-const sequelize = new Sequelize("railway", "root", "uhnKiDdqwDIqBIdOmDQHPaKMmcHCHoId", {
-  host: "switchback.proxy.rlwy.net",
+const sequelize = new Sequelize(process.env.MYSQL_DATABASE, process.env.MYSQLUSER , process.env.MYSQL_ROOT_PASSWORD, {
+  host: process.env.MYHOST,
   port: 20568,
   dialect: "mysql",
   dialectOptions: {

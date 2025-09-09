@@ -1,14 +1,6 @@
 const { Sequelize, DataTypes } = require("sequelize");
 
-const sequelize = new Sequelize("railway", "root", "uhnKiDdqwDIqBIdOmDQHPaKMmcHCHoId", {
-  host: "switchback.proxy.rlwy.net",
-  port: 20568,
-  dialect: "mysql",
-  dialectOptions: {
-    connectTimeout: 60000,
-  },
-  logging: false,
-});
+const { sequelize } = require("./db");
 
 // Модель таблиці user_rooms
 const UserRoom = sequelize.define("user_rooms", {

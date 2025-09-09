@@ -7,9 +7,10 @@
   "type": "commonjs",
   "main": "index.js",
   "scripts": {
-    "start": "nodemon index.js"
+    "start": "node index.js"
   },
   "dependencies": {
+    "@dotenvx/dotenvx": "^1.49.0",
     "@tailwindcss/vite": "^4.1.12",
     "bcrypt": "^6.0.0",
     "body-parser": "^2.2.0",
@@ -19,10 +20,12 @@
     "express-session": "^1.18.2",
     "multer": "^2.0.2",
     "mysql2": "^3.14.3",
-    "nodemon": "^3.1.10",
     "sequelize": "^6.37.7",
     "socket.io": "^4.8.1",
     "stripe": "^18.5.0",
     "tailwindcss": "^4.1.12"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
   }
 }
