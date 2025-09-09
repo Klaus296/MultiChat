@@ -11,7 +11,11 @@
 
     document.addEventListener("DOMContentLoaded", () => {
       // Проверка на наличие пользователя
-
+      socket.emit('check name');
+      console.log("Check name");
+      socket.on("has name",()=>{
+        window.location.href = "/chat"
+      })
       document.getElementById("registerForm").addEventListener("submit", async (e) => {
         e.preventDefault();
 

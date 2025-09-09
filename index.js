@@ -262,8 +262,8 @@ io.on("connection", (socket) => {
 
     let usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
     let currentUser = usersData[usersData.length - 1];
-
-    User.findOne({ where: { name: currentUser.username } })
+    if (currentUser){
+      User.findOne({ where: { username: currentUser.username } })
       .then(user => {
         if (user) {
           socket.emit("has name");
@@ -277,6 +277,8 @@ io.on("connection", (socket) => {
         console.error("❌ Ошибка при проверке имени:", err);
         socket.emit("no name");
       });
+    }
+    
   });
 
 
