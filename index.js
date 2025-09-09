@@ -55,7 +55,31 @@ app.get("/guess_the_number", (req, res) => res.sendFile(path.join(__dirname, "co
 app.get("/join_mafia", (req, res) => res.sendFile(path.join(__dirname, "content", "mafia-client.html")));
 app.get("/enter",(req,res)=> res.sendFile(path.join(__dirname,"content","user-enter.html")));
 app.get("/create", (req, res) => res.sendFile(path.join(__dirname, "content", "create-room.html")));
-app.get("/chat", (req, res) => res.sendFile(path.join(__dirname, "content", "home.html")));
+app.get("/chat", async (req, res) => {
+  try {
+    const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
+    const currentUser = usersData[usersData.length - 1];
+
+    if (!currentUser) {
+      return res.sendFile(path.join(__dirname, "content", "auth.html"));
+    }
+
+    const user = await User.findOne({
+      where: { username: currentUser.username }
+    });
+
+    if (user) {
+      res.sendFile(path.join(__dirname, "content", "home.html")); // ✅ пользователь есть
+    } else {
+      res.sendFile(path.join(__dirname, "content", "auth.html")); // ❌ нет в БД
+    }
+  } catch (err) {
+    console.error("❌ Ошибка в /chat:", err);
+    res.sendFile(path.join(__dirname, "content", "auth.html"));
+  }
+});
+
+  
 app.get("/users-chat",(req,res)=>{res.sendFile(path.join(__dirname,"content","users-chat.html"))});
 app.get("/messages",(req,res)=>{res.sendFile(path.join(__dirname,"content","messages.html"))});
 app.get("/us_profile", (req, res) => res.sendFile(path.join(__dirname, "content", "user-profile.html")));
@@ -181,9 +205,29 @@ io.on("connection", (socket) => {
     console.log(`👤 Пользователь вошёл в комнату: ${roomName}`);
     socket.emit("message", `Добро пожаловать в комнату ${roomName}`);
   });
-  socket.on("login", (username) => {
-    socket.username = username;
+  socket.on("login", async ({ name, password }) => {
+    try {
+      const user = await User.findOne({ where: { username: name } });
+      if (!user) {
+        return socket.emit("loginError", "Користувач не знайдений");
+      }
+
+      const ok = await bcrypt.compare(password, user.password);
+      if (!ok) {
+        return socket.emit("loginError", "Невірний пароль");
+      }
+
+      // Сохраняем юзера в сокете (сессия)
+      socket.username = user.username;
+
+      console.log(`✅ ${user.username} увійшов`);
+      socket.emit("loginSuccess", { username: user.username });
+    } catch (err) {
+      console.error("❌ Login error:", err);
+      socket.emit("loginError", "Помилка сервера");
+    }
   });
+
   socket.on("join_room", async ({ user, room }) => {
     socket.join(room);
 
@@ -810,17 +854,21 @@ io.on("connection", (socket) => {
     
   });
 
-  socket.on("register", async ({ name, password,language,email }) => {
+  socket.on("register", async ({ name, password, language, email }) => {
     console.log("➡ Реєстрація:", name);
-    const hashedPassword = await bcrypt.hash(password, 10);
-    if (users.some(u => u.username === name)) {
-      socket.emit("useRegister");
-      return;
-    }
+
     try {
-      console.log("Register")
+      // Проверяем, есть ли уже такой пользователь в БД
+      const existingUser = await User.findOne({ where: { username: name } });
+      if (existingUser) {
+        socket.emit("useRegister"); // имя занято
+        return;
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+
       const newUser = await User.create({
-        username:name,
+        username: name,
         password: hashedPassword,
         status: "user",
         date: new Date(),
@@ -828,17 +876,27 @@ io.on("connection", (socket) => {
         email: email
       });
 
-      users.push({ username: name, pass: password, createdAt: new Date().toISOString(),language:language,savedRooms:[],email:email,chatNow:"",roomNow:""});
+      // В JSON можно хранить только имя, язык и почту
+      users.push({
+        username: name,
+        createdAt: new Date().toISOString(),
+        language: language,
+        savedRooms: [],
+        email: email,
+        chatNow: "",
+        roomNow: ""
+      });
       fs.writeFileSync(filePath, JSON.stringify(users, null, 2));
 
       console.log("✅ Користувач створений:", name);
-
       socket.emit("registerSuccess", name);
+
     } catch (err) {
-      console.error("❌ Помилка реєстрації:", err);
-      socket.emit("registerError", "Validation error");
+      console.error("❌ Помилка реєстрації:", err.message);
+      socket.emit("registerError", err.message);
     }
   });
+
   socket.on("get user name",()=>{
     const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
     const username = usersData.length > 0 ? usersData[usersData.length - 1].username : null;

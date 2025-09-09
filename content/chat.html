@@ -145,7 +145,7 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
-const socket = io();
+const socket = io(window.location.origin);
 alert("If the messages do not appear, refresh the page.");
 fetch('/api/users')
 .then(response => response.json())

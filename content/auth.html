@@ -5,24 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Registration</title>
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <script src="http://localhost:5050/socket.io/socket.io.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
   <script>
-    const socket = io("http://localhost:5050");
+    const socket = io(window.location.origin);
 
     document.addEventListener("DOMContentLoaded", () => {
       // Проверка на наличие пользователя
-      fetch("/api/users")
-        .then(res => res.json())
-        .then(users => {
-          if (Array.isArray(users) && users.length > 0) {
-            window.location.href = "/chat";
-          }
-        })
-        .catch(err => console.error("❌ Error fetching users:", err));
-
-      document.getElementById("enter-btn").addEventListener("click", () => {
-        window.location.href = "/enter";
-      });
 
       document.getElementById("registerForm").addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -54,7 +42,9 @@
         }
       });
 
-      socket.on("registerSuccess", () => window.location.href = "/chat");
+      socket.on("registerSuccess", (name) => {
+        window.location.href = "/chat"
+      });
       socket.on("useRegister", () => window.location.href = "/chat");
       socket.on("registerError", msg => alert("❌ " + msg));
       socket.on("redirectToChat", () => window.location.href = "/chat");
@@ -186,7 +176,7 @@
   </style>
 </head>
 <body>
-  <a id="enter-btn">Enter</a>
+  <a id="enter-btn" href="/enter">Enter</a>
   <div id="register-form">
     <form id="registerForm">
       <input id="user-name" type="text" placeholder="Username" required />
@@ -304,7 +294,7 @@
           <option value="zu">Zulu</option>
         </select>
 
-      <input type="submit" value="Register" />
+      <input type="submit" href=".chat" id="register" value="Register" />
     </form>
   </div>
 </body>
