@@ -167,7 +167,7 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
-    const socket = io();
+    const socket = io({ auth: { token: localStorage.getItem("token") } });
     // Получаем имя пользователя из users.json через fetch
     let userName = "";
     fetch("/users.json")

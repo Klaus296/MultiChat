@@ -16,7 +16,7 @@
     </div>
     
     <script>
-        const socket = io();
+        const socket = io({ auth: { token: localStorage.getItem("token") } });
         document.addEventListener("DOMContentLoaded", () => {
             // запрос имени
             socket.emit("get user name")

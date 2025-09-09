@@ -145,7 +145,7 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
-const socket = io(window.location.origin);
+const socket = io({ auth: { token: localStorage.getItem("token") } });
 
 // Объявляем переменные в глобальной области видимости
 let chatNow = null;

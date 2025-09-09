@@ -20,8 +20,16 @@ if (!fs.existsSync(filePath)) fs.writeFileSync(filePath, "[]", "utf8");
 let users = JSON.parse(fs.readFileSync(filePath, "utf8"));
 const username = users.length > 0 ? users[users.length - 1].username : null;
 const chatsFile = path.join(__dirname, "chats.json");
+const session = require("express-session");
+
 
 const app = express();
+app.use(session({
+  secret: "super-secret-key",
+  resave: false,
+  saveUninitialized: true,
+  cookie: { secure: false } // для HTTPS поставь true
+}));
 app.use(cors());
 const server = http.createServer(app);
 let list = 0

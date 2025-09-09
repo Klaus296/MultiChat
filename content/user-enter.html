@@ -152,7 +152,7 @@
 
   <script>
     document.addEventListener("DOMContentLoaded", () => {
-      const socket = io("http://localhost:5050");
+      const socket = io({ auth: { token: localStorage.getItem("token") } });
 
       // Якщо вже авторизований — редирект у чат
       fetch("/api/me")
