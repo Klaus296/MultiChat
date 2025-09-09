@@ -20,6 +20,7 @@ if (!fs.existsSync(filePath)) fs.writeFileSync(filePath, "[]", "utf8");
 let users = JSON.parse(fs.readFileSync(filePath, "utf8"));
 const username = users.length > 0 ? users[users.length - 1].username : null;
 const chatsFile = path.join(__dirname, "chats.json");
+
 const app = express();
 app.use(cors());
 const server = http.createServer(app);
@@ -1148,9 +1149,6 @@ io.on("connection", (socket) => {
 
 });
 
-const PORT = process.env.PORT || 5050;  
-
-server.listen(PORT, () => {
-  console.log(PORT);
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+server.listen(5050, () => {
+  console.log("🚀 Сервер працює на http://localhost:5050");
 });
