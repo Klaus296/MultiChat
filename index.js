@@ -14,6 +14,7 @@ const {UserMessage} = require("./user-messages");
 const { MafiaUser } = require("./mafia-users");
 const { DataRoom } = require("./room-users"); 
 const { Op } = require("sequelize");
+const cors = require("cors");
 const filePath = path.join(__dirname, "users.json");
 if (!fs.existsSync(filePath)) fs.writeFileSync(filePath, "[]", "utf8");
 let users = JSON.parse(fs.readFileSync(filePath, "utf8"));
@@ -21,6 +22,7 @@ const username = users.length > 0 ? users[users.length - 1].username : null;
 const chatsFile = path.join(__dirname, "chats.json");
 
 const app = express();
+app.use(cors());
 const server = http.createServer(app);
 let list = 0
 function getPrivateRoomId(user1, user2) {
@@ -29,7 +31,13 @@ function getPrivateRoomId(user1, user2) {
 }
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-const io = new Server(server);
+const io = new Server(server, {
+  cors: {
+    origin: "*", // ⚠️ или укажи точный домен Railway
+    methods: ["GET", "POST"]
+  }
+});
+
 
 require("./mafia-game")(io);
 sequelize.authenticate()
