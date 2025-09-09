@@ -810,6 +810,7 @@ io.on("connection", (socket) => {
       return;
     }
     try {
+      console.log("Register")
       const newUser = await User.create({
         username:name,
         password: hashedPassword,
