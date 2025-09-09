@@ -1149,6 +1149,7 @@ io.on("connection", (socket) => {
 
 });
 
-server.listen(PORT, () => {
-  console.log("🚀 Сервер працює на http://localhost:5050");
+server.listen(3306, () => {
+  console.log(`PORT: ${PORT}`);
+  console.log(`🚀 Сервер працює на http://localhost:${PORT}`);
 });
