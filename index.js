@@ -433,6 +433,7 @@ io.on("connection", (socket) => {
       socket.emit("chat set", { chatNow, messages });
 
       console.log(`${mainName} подключился к ${roomId}, сообщений: ${messages.length}`);
+      console.log(messages);
     } catch (err) {
       console.error("❌ Ошибка join chat:", err);
       socket.emit("chat set", { chatNow, messages: [] });
@@ -604,6 +605,39 @@ io.on("connection", (socket) => {
           [Op.or]: [
             { sender: currentUser.username, recipient: chatNow },
             { sender: chatNow, recipient: currentUser.username }
+          ]
+        },
+        attributes: ["recipient", "sender", "messages"],
+        raw: true
+      });
+
+      socket.emit("chat set", (chat));
+      console.log("Переписка:", chat);
+
+    } catch (err) {
+      console.error("Ошибка при получении сообщений:", err);
+      socket.emit("chat set", []);
+    }
+  });
+  socket.on("get room messages", async () => {
+    try {
+      const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
+      const currentUser = usersData[usersData.length - 1];
+      const chatNow = currentUser.chatNow;
+      console.log("Текущий пользователь:", currentUser.username);
+      console.log("Его chatNow:", currentUser.chatNow);
+
+      if (!chatNow) {
+        socket.emit("chat seted", []);
+        console.log("Нет выбранного собеседника (chatNow пуст)");
+        return;
+      }
+
+      const chat = await UserMessage.findAll({
+        where: {
+          [Op.or]: [
+            { sender: chatNow, recipient: chatNow },
+            { sender: chatNow, recipient: chatNow }
           ]
         },
         attributes: ["recipient", "sender", "messages"],

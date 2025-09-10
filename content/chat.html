@@ -136,6 +136,10 @@
 </head>
 <body bgcolor="#23B87F">
     <div id="chat">
+        <a id="enter-btn" href="/chat" 
+            class="inline-block bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition-all duration-300">
+            Home
+        </a>
         <div id="chat-content"></div>
         <form id="messageForm">
             <input id="messageText" type="text" placeholder="Enter anything...">
@@ -146,34 +150,37 @@
     <script src="/socket.io/socket.io.js"></script>
     <script>
 const socket = io({ auth: { token: localStorage.getItem("token") } });
-fetch('/api/users')
-.then(response => response.json())
-.then(data => {
-    const currentUser = data[data.length - 1];  
+document.addEventListener("DOMContentLoaded", () => {
+    fetch('/api/users')
+    .then(response => response.json())
+    .then(data => {
+        const currentUser = data[data.length - 1];  
 
-    // Берем имя друга напрямую (строка)
-    const roomNow = typeof currentUser.roomNow === "string"
-        ? currentUser.roomNow
-        : "";
-    const mainName = typeof currentUser.mainName === "string"
-        ? currentUser.mainName
-        : "";
-    const chatNow = typeof currentUser.chatNow === "string"
-        ? currentUser.chatNow
-        : "";
-    console.log(roomNow);
-    socket.emit("join chat", {mainName:roomNow, chatNow:roomNow });
-    document.getElementById("messageForm").addEventListener("submit", (e) => {
-        e.preventDefault();
-        console.log(mainName, roomNow, chatNow);
-        const msg = document.getElementById("messageText").value.trim();
-        if (!msg || !chatNow || mainName === "Unknown") return;
+        // Берем имя друга напрямую (строка)
+        const roomNow = typeof currentUser.roomNow === "string"
+            ? currentUser.roomNow
+            : "";
+        const mainName = typeof currentUser.mainName === "string"
+            ? currentUser.mainName
+            : "";
+        const chatNow = typeof currentUser.chatNow === "string"
+            ? currentUser.chatNow
+            : "";
+        console.log(roomNow);
+        socket.emit("join chat", {mainName:roomNow, chatNow:roomNow });
+        document.getElementById("messageForm").addEventListener("submit", (e) => {
+            e.preventDefault();
+            console.log(mainName, roomNow, chatNow);
+            const msg = document.getElementById("messageText").value.trim();
+            if (!msg || !chatNow || mainName === "Unknown") return;
 
-        socket.emit("set chat", { chatNow:roomNow, mainName:roomNow, msg });
-        document.getElementById("messageText").value = "";
-    });
-})
-.catch(error => console.error("Ошибка загрузки chatNow:", error));
+            socket.emit("set chat", { chatNow:roomNow, mainName:roomNow, msg });
+            document.getElementById("messageText").value = "";
+        });
+    })
+    .catch(error => console.error("Ошибка загрузки chatNow:", error));
+});
+
 
 socket.on("no friend", () => {
     alert("No friend selected for chat.");
@@ -183,6 +190,7 @@ let chatNow = null;
 let mainName = null;
 socket.on("chat set", (data) => {
     if (data.chatNow) {
+        mainName = data.username;
         chatNow = data.chatNow;
     }
     const chatContent = document.getElementById("chat-content");
@@ -210,30 +218,10 @@ socket.on("chat set", (data) => {
                 btnContainer.style.display = "none";
             });
 
-            const editBtn = document.createElement("button");
-            editBtn.textContent = "Change";
-            editBtn.addEventListener("click", () => {
-                const msgSpan = div.querySelector(`#msgText-${index}`);
-                const input = document.createElement("input");
-                input.type = "text";
-                input.value = text;
-                msgSpan.replaceWith(input);
-                input.focus();
-
-                input.addEventListener("blur", () => {
-                    const newText = input.value.trim();
-                    if (newText && newText !== text) {
-                        socket.emit("edit message", { id: msg.id, chatNow, mainName, text: newText });
-                    }
-                    input.replaceWith(msgSpan);
-                    btnContainer.style.display = "none";
-                });
-            });
 
             const complainBtn = document.createElement("button");
             complainBtn.textContent = "Complain";
             btnContainer.appendChild(deleteBtn);
-            btnContainer.appendChild(editBtn);
             btnContainer.appendChild(complainBtn);
             div.appendChild(btnContainer);
 
