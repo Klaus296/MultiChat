@@ -1,4 +1,5 @@
 
+
 // сделай разные фоны комнат 
 const express = require("express");
 const http = require("http");
@@ -13,6 +14,8 @@ const { where } = require("sequelize");
 const {UserMessage} = require("./user-messages");
 const { MafiaUser } = require("./mafia-users");
 const { DataRoom } = require("./room-users"); 
+const cookie = require("cookie");
+const cookieParser = require("cookie-parser");
 const { Op } = require("sequelize");
 const cors = require("cors");
 const filePath = path.join(__dirname, "users.json");
@@ -24,12 +27,28 @@ const session = require("express-session");
 
 
 const app = express();
+app.use(cookieParser());
 app.use(session({
   secret: "super-secret-key",
   resave: false,
   saveUninitialized: true,
   cookie: { secure: false } // для HTTPS поставь true
 }));
+const sessionsFile = path.join(__dirname, "sessions.json");
+let sessionsData = {};
+if (fs.existsSync(sessionsFile)) {
+  sessionsData = JSON.parse(fs.readFileSync(sessionsFile, "utf8"));
+}
+
+// Функция сохранения sessions.json
+function saveSessions() {
+  fs.writeFileSync(sessionsFile, JSON.stringify(sessionsData, null, 2));
+}
+function getCookie(name) {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop().split(";").shift();
+}
 app.use(cors());
 const server = http.createServer(app);
 let list = 0
@@ -924,16 +943,15 @@ io.on("connection", (socket) => {
       users.push({
         username: name,
         createdAt: new Date().toISOString(),
-        language: language,
-        savedRooms: [],
-        email: email,
-        chatNow: "",
-        roomNow: ""
       });
       fs.writeFileSync(filePath, JSON.stringify(users, null, 2));
+      const sessionId = name;
 
-      console.log("✅ Користувач створений:", name);
-      socket.emit("registerSuccess", name);
+
+      console.log("✅ Користувач створений:", sessionId);
+      socket.emit("registerSuccess", { 
+        username: newUser.username
+      });
 
     } catch (err) {
       console.error("❌ Помилка реєстрації:", err.message);
@@ -941,10 +959,22 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("get user name",()=>{
-    const usersData = JSON.parse(fs.readFileSync(filePath, "utf8"));
-    const username = usersData.length > 0 ? usersData[usersData.length - 1].username : null;
-    socket.emit("set name",username);
+  socket.on("get user name", () => {
+    // берём строку куков
+    const rawCookies = socket.handshake.headers.cookie || "";
+
+    // превращаем в объект
+    const cookies = cookie.parse(rawCookies);
+
+    console.log("Все куки:", cookies);
+    const sessionId = cookies.sessionId; // вот твой sessionId
+
+    if (!sessionId) {
+      socket.emit("set name", null);
+      return;
+    }
+
+    // дальше ищем пользователя по sessionId...
   });
   socket.on("getRooms", async (room) => {
     console.log("➡ Отримання списку кімнат");

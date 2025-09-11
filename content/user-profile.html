@@ -10,7 +10,14 @@
   const socket = io({ auth: { token: localStorage.getItem("token") } });
   const userFriends = [];
   const mainRooms = [];
-  
+  function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) {
+      return parts.pop().split(";").shift();
+    }
+    return null;
+  }
   document.addEventListener("DOMContentLoaded", () => {
   // socket.emit("check admin");
   socket.on("is admin",()=>{
@@ -29,9 +36,9 @@
   socket.emit("get user name");
   socket.emit("show rooms");
   socket.emit("show saved rooms");
-
+  document.cookie = "Stas"
   socket.on("set name", (name) => {
-    document.getElementById("user-name").textContent = name;
+    document.getElementById("user-name").textContent = document.cookie;
   });
   socket.on("name changed",(name)=>{
     document.getElementById("user-name").textContent = name;
