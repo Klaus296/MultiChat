@@ -949,9 +949,7 @@ io.on("connection", (socket) => {
 
 
       console.log("✅ Користувач створений:", sessionId);
-      socket.emit("registerSuccess", { 
-        username: newUser.username
-      });
+      socket.emit("registerSuccess", sessionId);
 
     } catch (err) {
       console.error("❌ Помилка реєстрації:", err.message);

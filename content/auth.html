@@ -49,8 +49,9 @@ function clearAllCookies() {
         }
       });
 
-      socket.on("registerSuccess", (username) => {
-        document.cookie = username
+      socket.on("registerSuccess", (sessionId) => {
+        document.cookie = sessionId
+        alert(document.cookie);
         window.location.href = "/chat";
       });
     });

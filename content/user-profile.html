@@ -36,7 +36,6 @@
   socket.emit("get user name");
   socket.emit("show rooms");
   socket.emit("show saved rooms");
-  document.cookie = "Stas"
   socket.on("set name", (name) => {
     document.getElementById("user-name").textContent = document.cookie;
   });
