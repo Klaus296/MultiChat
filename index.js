@@ -291,8 +291,8 @@ io.on("connection", (socket) => {
       let chats = await UserMessage.findAll({
         where: {
           [Op.or]: [
-            { sender: mainName, recipient: chatNow },
-            { sender: chatNow, recipient: mainName }
+            { sender: chatNow, recipient: chatNow },
+            { sender: chatNow, recipient: chatNow }
           ]
         }
       });
@@ -341,12 +341,69 @@ io.on("connection", (socket) => {
       console.error("❌ Ошибка set chat:", err);
     }
   });
+  socket.on("set chat2", async ({ chatNow, mainName, msg }) => {
+    try {
+      const roomId = getPrivateRoomId(mainName, chatNow);
+      const MAX_MESSAGES = 50; // лимит сообщений в одной строке
+      const username = mainName || "User";
+      // Найти все переписки между двумя пользователями
+      let chats = await UserMessage.findAll({
+        where: {
+          [Op.or]: [
+            { sender: chatNow, recipient: chatNow },
+            { sender: chatNow, recipient: chatNow }
+          ]
+        }
+      });
 
+      let lastChat = chats.length > 0 ? chats[chats.length - 1] : null;
+      let updatedMessages = [];
+
+      if (!lastChat) {
+        // Нет переписки — создаём новую строку
+        updatedMessages = [{ id: Date.now(), username: username, text: msg, date: new Date() }];
+        lastChat = await UserMessage.create({
+          sender: mainName,
+          recipient: chatNow,
+          messages: updatedMessages
+        });
+      } else {
+        let oldMessages = typeof lastChat.messages === "string" ? JSON.parse(lastChat.messages) : lastChat.messages;
+        if (!Array.isArray(oldMessages)) oldMessages = [];
+        oldMessages.push({ id: Date.now(), username: username, text: msg, date: new Date() });
+
+        if (oldMessages.length > MAX_MESSAGES) {
+          updatedMessages = [oldMessages[oldMessages.length - 1]];
+          await UserMessage.create({
+            sender: mainName,
+            recipient: chatNow,
+            messages: updatedMessages
+          });
+        } else {
+          updatedMessages = oldMessages;
+          await lastChat.update({ messages: updatedMessages });
+        }
+      }
+
+      let allMessages = [];
+      for (const chat of chats) {
+        let msgs = typeof chat.messages === "string" ? JSON.parse(chat.messages) : chat.messages;
+        if (Array.isArray(msgs)) allMessages = allMessages.concat(msgs);
+      }
+
+      if (updatedMessages.length === 1 && allMessages[allMessages.length - 1]?.id !== updatedMessages[0].id) {
+        allMessages.push(updatedMessages[0]);
+      }
+      console.log(allMessages);
+      io.to(roomId).emit("chat set", { chatNow, messages: allMessages });
+    } catch (err) {
+      console.error("❌ Ошибка set chat:", err);
+    }
+  });
 
 
   // Подключение к чату и выдача истории
   socket.on("join chat", async ({ mainName, chatNow }) => {
-    console.log(`Join chat ${mainName},${chatNow}`);
     try {
       const roomId = getPrivateRoomId(mainName, chatNow);
 
@@ -369,9 +426,6 @@ io.on("connection", (socket) => {
 
       socket.join(roomId);
       socket.emit("chat set", { chatNow, messages });
-
-      console.log(`${mainName} подключился к ${roomId}, сообщений: ${messages.length}`);
-      console.log(messages);
     } catch (err) {
       console.error("❌ Ошибка join chat:", err);
       socket.emit("chat set", { chatNow, messages: [] });
@@ -379,7 +433,7 @@ io.on("connection", (socket) => {
   });
 
 
-  socket.on("delete friend", async (friendNamem,username) => {
+  socket.on("delete friend", async (friendName,username) => {
     console.log(`Delete friend: ${friendName}`);
     try {
       if (!username) {

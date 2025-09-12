@@ -23,9 +23,10 @@ function getCookie(name) {
     if (parts.length === 2) return parts.pop().split(";").shift();
 }
     document.addEventListener("DOMContentLoaded", () => {
-      // if (getCookie("username")){
-      //   window.location.href = "/chat";
-      // }
+      if (getCookie("username")){
+        document.cookie = `username=${getCookie("username")}; path=/; max-age=` + 60*60*24*7;
+        window.location.href = "/chat";
+      }
       document.getElementById("registerForm").addEventListener("submit", async (e) => {
         e.preventDefault();
         const name = document.getElementById("user-name").value.trim();

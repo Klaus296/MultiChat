@@ -110,11 +110,7 @@
   </nav>
 <script src="/socket.io/socket.io.js"></script>
 <script>
-  const socket = io("http://localhost:5050", {
-    auth: { token: localStorage.getItem("token") },
-    withCredentials: true
-  });
-
+  const socket = io({ auth: { token: localStorage.getItem("token") } });
   const recomendations = document.getElementById("recomendations");
   function getCookie(name) {
     const value = `; ${document.cookie}`;

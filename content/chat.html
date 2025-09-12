@@ -158,7 +158,7 @@ function getCookie(name) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-    const mainName = getCookie("chat"); // твое имя
+    const mainName = getCookie("username"); // твое имя
     const chatNow = getCookie("chat");      // с кем общаемся
 
     if (!mainName || !chatNow) {
@@ -168,22 +168,24 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     console.log(`➡ Входим в чат: ${chatNow} ↔ ${chatNow}`);
-    socket.emit("join chat", { mainName, chatNow });
+    socket.emit("join chat", { mainName:chatNow, chatNow });
 
     document.getElementById("messageForm").addEventListener("submit", (e) => {
         e.preventDefault();
         const msg = document.getElementById("messageText").value.trim();
         if (!msg) return;
-
-        socket.emit("set chat", { chatNow, mainName, msg });
+        console.log(mainName)
+        socket.emit("set chat2", { chatNow, mainName, msg });
         document.getElementById("messageText").value = "";
+        socket.emit("join chat", { mainName:chatNow, chatNow });
     });
 });
 
 socket.on("chat set", (data) => {
     const chatContent = document.getElementById("chat-content");
     chatContent.innerHTML = "";
-
+    const mainName = getCookie("username"); // твое имя
+    const chatNow = getCookie("chat");   
     if (data.messages && Array.isArray(data.messages)) {
         data.messages.forEach((msg, index) => {
             const name = msg.username || msg.sender || "Unknown";
@@ -198,6 +200,7 @@ socket.on("chat set", (data) => {
     }
 
     chatContent.scrollTop = chatContent.scrollHeight;
+    socket.emit("join chat", { mainName:chatNow, chatNow });
 });
 
 function escapeHtml(str) {

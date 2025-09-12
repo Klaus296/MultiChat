@@ -182,7 +182,7 @@
           div.innerHTML = `
             <h2>${room.room_name}</h2>
             <p>${room.description || ""}</p>
-            <button class="join-btn" onclick="window.location.href='/main?room=${encodeURIComponent(room.room_name)}'">Join Room</button>
+            <button class="join-btn" onclick="toRoomChat('${room.room_name}')">Join Room</button>
             <button id="saveRoom">Save</button>
           `;
           container.appendChild(div);
@@ -212,7 +212,10 @@
     socket.on("friend error", (msg) => {
       alert("❌ " + msg);
     });
-
+function toRoomChat(roomName){
+  document.cookie = `chat=${roomName}; path=/; max-age=` + 60*60*24*7;
+  window.location.href = `/room-chat?room=${encodeURIComponent(roomName)}`;
+}
   </script>
 </body>
 </html>
