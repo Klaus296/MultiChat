@@ -363,7 +363,7 @@ io.on("connection", (socket) => {
         // Нет переписки — создаём новую строку
         updatedMessages = [{ id: Date.now(), username: username, text: msg, date: new Date() }];
         lastChat = await UserMessage.create({
-          sender: mainName,
+          sender: chatNow,
           recipient: chatNow,
           messages: updatedMessages
         });
@@ -375,7 +375,7 @@ io.on("connection", (socket) => {
         if (oldMessages.length > MAX_MESSAGES) {
           updatedMessages = [oldMessages[oldMessages.length - 1]];
           await UserMessage.create({
-            sender: mainName,
+            sender: chatNow,
             recipient: chatNow,
             messages: updatedMessages
           });
