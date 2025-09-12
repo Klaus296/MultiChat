@@ -17,13 +17,18 @@
     
     <script>
         const socket = io({ auth: { token: localStorage.getItem("token") } });
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(";").shift();
+        }
         document.addEventListener("DOMContentLoaded", () => {
             // запрос имени
-            socket.emit("get user name")
-            socket.emit("show friends"); 
-            socket.emit("show chats");
-            socket.emit("show rooms");
-            
+            const username = getCookie("username");
+            socket.emit("show friends",(username)); 
+            socket.emit("show chats",(username));
+            socket.emit("show rooms",username);
+            console.log(document.cookie);
             socket.on("username",(username)=>{
                 const name = username;
                 if (!name){
@@ -31,7 +36,7 @@
                 return;
                 }
             })
-
+            
             socket.on("chatsList", (userFriends) => {
                 const friendsContainer = document.querySelector("#friends-list");
                 friendsContainer.innerHTML = "";
@@ -51,13 +56,13 @@
                     ${friendName[0].toUpperCase()}
                     </div>
                     <span class="font-medium">${friendName}</span>
-                    <button id="del-freiend">Delete</button>
+                    <button class="inline-block bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition-all duration-300" id="del-freiend">Delete</button>
                 `;
                 friendCard.onclick = () => toChat(friendName);
                 friendCard.querySelector("#del-freiend").onclick = (e) => {
                     e.stopPropagation(); // чтобы не срабатывал клик по карточке
                     if (confirm(`Are you sure you want to delete ${friendName} from friends?`)) {
-                    socket.emit("delete friend", friendName);
+                    socket.emit("delete friend", (friendName,username));
                     friendCard.remove();
                     }
                 };
@@ -85,14 +90,23 @@
                 });
             });
 
-            function toChat(friend){
-                socket.emit("get hash",friend);
-                socket.on("set hash",(hash)=>{
-                console.log(hash);    
-                window.location.href = `/your?room=${encodeURIComponent(hash)}`;          
-            })
+            
                 
+            function toChat(friend) {
+                const username = document.cookie;
+                alert(username);
+                if (!username) {
+                    alert("Вы не авторизованы");
+                    window.location.href = "/";
+                    return;
+                }
+                // Сохранить имя на 7 дней
+                document.cookie = `chat=${friend}; path=/; max-age=` + 60*60*24*7;
+
+                // socket.emit("get hash", { friend: friend, username: username });
+                window.location.href = `/your`;
             }
+
         });
                     
     </script>

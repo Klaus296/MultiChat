@@ -51,6 +51,11 @@ const User = sequelize.define("User", {
     type: DataTypes.STRING,
     defaultValue: "no",
     allowNull: false,
+  },
+  chat:{
+    type: DataTypes.STRING,
+    defaultValue: "undefined",
+    allowNull: false
   }
 }, {
   tableName: "multichat_users",

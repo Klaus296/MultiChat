@@ -154,15 +154,6 @@
     document.addEventListener("DOMContentLoaded", () => {
       const socket = io({ auth: { token: localStorage.getItem("token") } });
 
-      // Якщо вже авторизований — редирект у чат
-      fetch("/api/me")
-        .then(res => res.json())
-        .then(user => {
-          if (user && user.name) {
-            window.location.href = "/chat";
-          }
-        })
-        .catch(() => {});
 
       document.getElementById("loginForm").addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -182,6 +173,7 @@
           const data = await res.json();
 
           if (res.ok && data.success) {
+            document.cookie = `username=${name}; path=/; max-age=` + 60*60*24*7;
             window.location.href = "/chat";
           } else {
             alert("❌ " + (data.message || "Помилка входу"));

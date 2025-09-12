@@ -140,7 +140,12 @@
       roomsBtn.classList.toggle("active", mode === 0);
       usersBtn.classList.toggle("active", mode === 1);
     }
-
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(";").shift();
+    }
+    const username = getCookie("username");
     roomsBtn.addEventListener("click", (e) => {
       e.preventDefault();
       mode = 0;
@@ -193,7 +198,7 @@
         `;
         const btn = div.querySelector(".add-friend-btn");
         btn.addEventListener("click", () => {
-          socket.emit("add friend", { name: user.username });
+          socket.emit("add friend", { name: user.username, username:username });
         });
         container.appendChild(div);
       });
