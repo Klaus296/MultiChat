@@ -10,6 +10,8 @@
     "start": "node index.js"
   },
   "dependencies": {
+    "@capacitor/cli": "^7.4.3",
+    "@capacitor/core": "^7.4.3",
     "@dotenvx/dotenvx": "^1.49.0",
     "@tailwindcss/vite": "^4.1.12",
     "bcrypt": "^6.0.0",
